@@ -67,6 +67,17 @@ class FormAnalyzerTest {
     }
 
     @Test
+    void dogFormKeepsMarkingOptionsOutOfGenderChoice() throws Exception {
+        List<JsonNode> radios = Fixtures.fields(convert("wniosek-psy-agresywne")).stream()
+                .filter(f -> f.path("type").asText().equals("RADIO")).toList();
+        JsonNode gender = radios.stream().filter(f -> f.path("title").asText().equals("Płeć")).findFirst().orElseThrow();
+        JsonNode marking = radios.stream().filter(f -> f.path("title").asText().startsWith("Sposób oznakowania"))
+                .findFirst().orElseThrow();
+        assertEquals(2, gender.path("options").size());
+        assertEquals("Mikroprocesor", marking.path("options").get(0).path("name").asText());
+    }
+
+    @Test
     void combinedSportsFormLetsUserChooseApplicationType() throws Exception {
         JsonNode form = convert("wniosek-stypendium-sportowe");
         JsonNode choice = Fixtures.fields(form).stream().filter(f -> f.path("techName").asText().equals("rodzaj_wniosku"))

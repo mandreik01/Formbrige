@@ -484,8 +484,13 @@ public final class FormAnalyzer {
                 }
                 if (optionGroup == null) {
                     openOptionGroup(pendingLabel != null ? pendingLabel : (current != null ? current.title : "Wybierz"), false);
+                    if (carriedOption != null) {
+                        addOption(carriedOption);
+                        carriedOption = null;
+                    }
                 }
                 addOption(opt);
+                lastOptionLine = i;
                 return;
             }
 
@@ -565,6 +570,14 @@ public final class FormAnalyzer {
                 return;
             }
             if ((endsColon || nextLeaderOnly) && words <= 25) {
+                // pdftotext potrafi wstawić etykietę kolejnej grupy po jej pierwszej opcji
+                // („❑ suka / ❑ mikroprocesor …… / Sposób oznakowania: / ❑ tatuaż”)
+                if (optionGroup != null && lastOptionLine == i - 1 && optionGroup.options.size() > 2
+                        && TextLines.hasLeader(lines.get(i - 1)) && TextLines.CHECKBOX.matcher(next).find()) {
+                    optionGroup.options.remove(optionGroup.options.size() - 1);
+                    deferred.remove(deferred.size() - 1);
+                    carriedOption = TextLines.withoutCheckbox(lines.get(i - 1));
+                }
                 closeOptionGroup();
                 pendingLabel = cleanLabel(line);
                 if (TextLines.CHECKBOX.matcher(next).find()) {
@@ -847,6 +860,8 @@ public final class FormAnalyzer {
         }
 
         private final List<java.util.function.Supplier<FieldSpec>> deferred = new ArrayList<>();
+        private String carriedOption;
+        private int lastOptionLine = -2;
 
         private void closeOptionGroup() {
             if (optionGroup == null) {
