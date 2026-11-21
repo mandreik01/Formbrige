@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FormBridge – cyfryzacja formularzy</title>
+<style>
+  :root { --ink:#1b1f24; --muted:#5b6470; --line:#d6dbe1; --bg:#f6f7f9; --card:#fff; --accent:#0b5cad; --ok:#1e7a3c; --err:#b3261e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:#0e2a47; color:#fff; padding:20px 24px; }
+  header h1 { margin:0; font-size:22px; }
+  header p { margin:4px 0 0; color:#c9d6e5; }
+  main { max-width:1200px; margin:0 auto; padding:24px; display:grid; gap:20px; }
+  section.card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px; }
+  h2 { font-size:18px; margin:0 0 12px; }
+  label { display:block; font-weight:600; margin:8px 0 4px; }
+  input[type=text], input[type=password], textarea, select { width:100%; padding:9px 10px; border:1px solid #9aa4b0; border-radius:6px; font:inherit; }
+  button { font:inherit; padding:9px 16px; border-radius:6px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; }
+  button.secondary { background:#fff; color:var(--accent); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button:focus-visible, input:focus-visible, .drop:focus-visible, [role=tab]:focus-visible { outline:3px solid #f2a900; outline-offset:2px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:end; }
+  .row > * { flex:1 1 200px; }
+  .drop { border:2px dashed #8b96a3; border-radius:10px; padding:28px; text-align:center; color:var(--muted); cursor:pointer; }
+  .drop.over { border-color:var(--accent); background:#eaf2fb; }
+  .muted { color:var(--muted); font-size:14px; }
+  ul.files { list-style:none; padding:0; margin:12px 0 0; }
+  ul.files li { padding:6px 0; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:8px; }
+  .results { display:grid; gap:8px; }
+  .result { border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .result.active { border-color:var(--accent); box-shadow:0 0 0 2px #cfe2f6; }
+  .badge { font-size:13px; padding:2px 8px; border-radius:999px; background:#eef1f4; }
+  .badge.ok { background:#e3f3e8; color:var(--ok); } .badge.err { background:#fbe9e7; color:var(--err); }
+  .split { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width: 900px) { .split { grid-template-columns:1fr; } }
+  pre.json { margin:0; max-height:640px; overflow:auto; background:#0f1720; color:#e6edf3; padding:14px; border-radius:8px; font:13px/1.45 ui-monospace, Consolas, monospace; }
+  .k { color:#7cc4ff; } .s { color:#a5e3a1; } .n { color:#f8c37c; } .b { color:#ff9bd2; }
+  [role=tablist] { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  [role=tab] { background:#fff; color:var(--ink); border:1px solid var(--line); }
+  [role=tab][aria-selected=true] { background:var(--accent); color:#fff; border-color:var(--accent); }
+  fieldset { border:1px solid var(--line); border-radius:8px; margin:0 0 14px; padding:12px 14px; }
+  legend { font-weight:700; padding:0 6px; }
+  .field { margin:10px 0; }
+  .field .hint { font-size:13px; color:var(--muted); }
+  .req::after { content:" *"; color:var(--err); }
+  .opt { display:flex; gap:8px; align-items:center; font-weight:400; margin:4px 0; }
+  .textblock { background:#f3f6fa; border-left:3px solid var(--accent); padding:8px 12px; font-size:14px; }
+  .error { color:var(--err); }
+  .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<header>
+  <h1>FormBridge</h1>
+  <p>Formularz urzędowy (PDF, DOC, DOCX, ODS, XLSX, JPG, PNG) → konfiguracja eUsługi w JSON</p>
+</header>
+<main>
+  <section class="card" aria-labelledby="auth-h">
+    <h2 id="auth-h">1. Dostęp do API</h2>
+    <div class="row">
+      <div><label for="clientId">Identyfikator klienta</label><input id="clientId" type="text" autocomplete="username"></div>
+      <div><label for="clientSecret">Hasło klienta</label><input id="clientSecret" type="password" autocomplete="current-password"></div>
+      <div style="flex:0 0 auto"><button id="getToken" type="button">Pobierz token</button></div>
+    </div>
+    <label for="token">Token JWT</label>
+    <input id="token" type="text" placeholder="Wklej token albo pobierz go powyżej. Puste pole = tryb bez uwierzytelniania.">
+    <p id="authMsg" class="muted" role="status"></p>
+  </section>
+
+  <section class="card" aria-labelledby="upload-h">
+    <h2 id="upload-h">2. Formularze do konwersji</h2>
+    <div id="drop" class="drop" tabindex="0" role="button" aria-describedby="drop-hint">
+      Przeciągnij pliki tutaj albo naciśnij Enter, aby je wybrać
+      <div id="drop-hint" class="muted">Jeden lub wiele plików: pdf, doc, docx, ods, xlsx, jpg, jpeg, png</div>
+    </div>
+    <input id="fileInput" type="file" multiple class="sr-only" accept=".pdf,.doc,.docx,.ods,.xlsx,.jpg,.jpeg,.jpe,.png" aria-label="Wybierz pliki">
+    <ul id="fileList" class="files" aria-live="polite"></ul>
+    <div class="row" style="margin-top:12px">
+      <div style="flex:0 0 auto"><button id="convert" type="button" disabled>Konwertuj</button></div>
+      <div style="flex:0 0 auto"><button id="clear" type="button" class="secondary">Wyczyść</button></div>
+    </div>
+    <p id="status" role="status" aria-live="polite" class="muted"></p>
+  </section>
+
+  <section class="card" aria-labelledby="res-h">
+    <h2 id="res-h">3. Wyniki</h2>
+    <div id="results" class="results"><p class="muted">Brak wyników.</p></div>
+  </section>
+
+  <section id="viewer" class="card" aria-labelledby="view-h" hidden>
+    <div class="row" style="align-items:center">
+      <h2 id="view-h" style="flex:1 1 auto"></h2>
+      <div style="flex:0 0 auto"><button id="download" type="button" class="secondary">Pobierz JSON</button></div>
+    </div>
+    <div class="split">
+      <div>
+        <h3>Podgląd e-formularza</h3>
+        <div id="tabs" role="tablist" aria-label="Strony formularza"></div>
+        <form id="preview" onsubmit="return false"></form>
+      </div>
+      <div>
+        <h3>JSON</h3>
+        <pre id="json" class="json" tabindex="0" aria-label="Wygenerowany JSON"></pre>
+        <div id="dicts"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let files = [];
+let results = [];
+let current = null;
+let answers = {};
+
+$('getToken').onclick = async () => {
+  $('authMsg').textContent = 'Pobieram token…';
+  try {
+    const r = await fetch('/api/v1/auth/token', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId: $('clientId').value, clientSecret: $('clientSecret').value }) });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.detail || 'Błędne dane logowania');
+    $('token').value = body.access_token;
+    $('authMsg').textContent = 'Token ważny przez ' + Math.round(body.expires_in / 60) + ' min.';
+  } catch (e) {
+    $('authMsg').innerHTML = '<span class="error">' + esc(e.message) + '</span>';
+  }
+};
+
+const drop = $('drop');
+drop.onclick = () => $('fileInput').click();
+drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('fileInput').click(); } };
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); addFiles(e.dataTransfer.files); };
+$('fileInput').onchange = e => { addFiles(e.target.files); e.target.value = ''; };
+$('clear').onclick = () => { files = []; renderFiles(); };
+
+function addFiles(list) {
+  for (const f of list) if (!files.some(x => x.name === f.name && x.size === f.size)) files.push(f);
+  renderFiles();
+}
+
+function renderFiles() {
+  $('fileList').innerHTML = files.map((f, i) =>
+    `<li><span>${esc(f.name)} <span class="muted">(${(f.size / 1024).toFixed(0)} KB)</span></span>
+     <button type="button" class="secondary" data-i="${i}" aria-label="Usuń ${esc(f.name)}">Usuń</button></li>`).join('');
+  $('fileList').querySelectorAll('button').forEach(b => b.onclick = () => { files.splice(+b.dataset.i, 1); renderFiles(); });
+  $('convert').disabled = files.length === 0;
+}
+
+function headers() {
+  const t = $('token').value.trim();
+  return t ? { Authorization: 'Bearer ' + t } : {};
+}
+
+$('convert').onclick = async () => {
+  $('convert').disabled = true;
+  $('status').textContent = `Przetwarzam ${files.length} plik(i)… OCR skanów i model językowy mogą potrwać do minuty.`;
+  const started = performance.now();
+  try {
+    if (files.length === 1) {
+      const fd = new FormData();
+      fd.append('file', files[0]);
+      const r = await fetch('/api/v1/forms/convert', { method: 'POST', headers: headers(), body: fd });
+      const body = await r.json().catch(() => ({}));
+      results.unshift(r.ok
+        ? { fileName: files[0].name, status: 200, form: body, processingMs: +r.headers.get('X-FormBridge-Processing-Ms') || null,
+            aiModel: r.headers.get('X-FormBridge-AI-Model'), aiRefined: r.headers.get('X-FormBridge-AI-Refined') }
+        : { fileName: files[0].name, status: r.status, error: body });
+    } else {
+      const fd = new FormData();
+      files.forEach(f => fd.append('files', f));
+      const r = await fetch('/api/v1/forms/convert-batch', { method: 'POST', headers: headers(), body: fd });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(body.detail || ('HTTP ' + r.status));
+      results.unshift(...body);
+    }
+    $('status').textContent = `Gotowe w ${((performance.now() - started) / 1000).toFixed(1)} s.`;
+  } catch (e) {
+    $('status').innerHTML = '<span class="error">' + esc(e.message) + '</span>';
+  }
+  renderResults();
+  $('convert').disabled = files.length === 0;
+};
+
+function renderResults() {
+  if (!results.length) return;
+  $('results').innerHTML = results.map((r, i) => {
+    const ok = r.status === 200;
+    const meta = ok ? [r.processingMs ? r.processingMs + ' ms' : '', r.aiModel ? 'AI: ' + r.aiModel + (r.aiRefined ? ' (' + r.aiRefined + ')' : '') : '']
+      .filter(Boolean).join(' · ') : esc(r.error?.detail || r.error?.title || 'Błąd');
+    return `<div class="result${current === i ? ' active' : ''}">
+      <span class="badge ${ok ? 'ok' : 'err'}">${ok ? 'OK' : r.status}</span>
+      <strong style="flex:1 1 240px">${esc(r.fileName)}</strong>
+      <span class="muted">${meta}</span>
+      ${ok ? `<button type="button" class="secondary" data-i="${i}">Pokaż</button>` : ''}</div>`;
+  }).join('');
+  $('results').querySelectorAll('button').forEach(b => b.onclick = () => show(+b.dataset.i));
+  if (current === null && results[0]?.status === 200) show(0);
+}
+
+function show(i) {
+  current = i;
+  answers = {};
+  const r = results[i];
+  $('viewer').hidden = false;
+  $('view-h').textContent = r.form.title;
+  $('json').innerHTML = highlight(JSON.stringify(r.form, null, 2));
+  const d = r.proposedDictionaries || [];
+  $('dicts').innerHTML = d.length ? '<h3>Proponowane nowe słowniki</h3><ul>' + d.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '';
+  initAnswers(r.form);
+  renderTabs(r.form, 0);
+  renderResults();
+}
+
+$('download').onclick = () => {
+  const r = results[current];
+  const blob = new Blob([JSON.stringify(r.form, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = r.fileName.replace(/\.[^.]+$/, '') + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+function initAnswers(form) {
+  for (const tab of form.tabs) for (const q of tab.questions) for (const c of q.field.repeatingSectionGrid) {
+    const f = c.field;
+    const key = q.field.techName + '/' + f.techName;
+    if (Array.isArray(f.defaultValue)) answers[key] = f.defaultValue.slice();
+    else if (f.defaultValue && f.defaultValueType !== 'EXTERNAL_SYSTEM') answers[key] = [f.defaultValue];
+    else answers[key] = [];
+  }
+}
+
+function visible(field) {
+  const state = (field.states || []).find(s => s.type === 'SHOW');
+  if (!state) return true;
+  const js = state.query
+    .replace(/\("((?:[^"\\]|\\.)*)" in tabs\['(?:[^'\\]|\\.)*' in title\]\.questions\['([^']+)' in field\.techName\]\.field\.repeatingSectionGrid\['([^']+)' in field\.techName\]\.field\.__userAnswer\)/g,
+      (_, v, s, f) => `(A(${JSON.stringify(s + '/' + f)}).includes(${JSON.stringify(JSON.parse('"' + v + '"'))}))`)
+    .replace(/\$not/g, '!').replace(/\band\b/g, '&&').replace(/\bor\b/g, '||');
+  try { return !!new Function('A', 'return ' + js)(k => answers[k] || []); } catch { return true; }
+}
+
+function renderTabs(form, active) {
+  $('tabs').innerHTML = form.tabs.map((t, i) =>
+    `<button type="button" role="tab" id="tab-${i}" aria-selected="${i === active}" aria-controls="preview" data-i="${i}">${i + 1}. ${esc(t.title)}</button>`).join('');
+  $('tabs').querySelectorAll('[role=tab]').forEach(b => b.onclick = () => renderTabs(form, +b.dataset.i));
+  $('preview').setAttribute('aria-labelledby', 'tab-' + active);
+  renderPage(form, active);
+}
+
+function renderPage(form, idx) {
+  const tab = form.tabs[idx];
+  let html = '';
+  for (const q of tab.questions) {
+    const s = q.field;
+    if (!visible(s)) continue;
+    html += `<fieldset><legend>${esc(s.title)}${s.type === 'REPEATING_SECTION' ? ' <span class="badge">powtarzalna</span>' : ''}</legend>`;
+    if (s.description && strip(s.description)) html += `<div class="hint">${safeHtml(s.description)}</div>`;
+    for (const c of s.repeatingSectionGrid) if (visible(c.field)) html += renderField(s.techName, c.field);
+    html += '</fieldset>';
+  }
+  $('preview').innerHTML = html || '<p class="muted">Brak widocznych pól.</p>';
+  $('preview').querySelectorAll('[data-key]').forEach(el => el.addEventListener('change', () => {
+    const key = el.dataset.key;
+    if (el.type === 'checkbox') {
+      const set = new Set(answers[key] || []);
+      el.checked ? set.add(el.value) : set.delete(el.value);
+      answers[key] = [...set];
+    } else {
+      answers[key] = el.value ? [el.value] : [];
+    }
+    renderPage(form, idx);
+  }));
+}
+
+function renderField(section, f) {
+  const key = section + '/' + f.techName;
+  const id = 'f-' + key.replace(/[^a-z0-9_]/gi, '_');
+  const req = (f.validation || []).includes('REQUIRED');
+  const val = (answers[key] || [])[0] || '';
+  const ext = f.defaultValueType === 'EXTERNAL_SYSTEM' ? `<div class="hint">Dane z rejestru: ${esc(f.defaultValue)}</div>` : '';
+  const hint = f.description && strip(f.description) && f.type !== 'TEXT_BLOCK' ? `<div class="hint">${safeHtml(f.description)}</div>` : '';
+  const valid = (f.validation || []).filter(v => v !== 'REQUIRED');
+  const vhint = valid.length ? `<div class="hint">Walidacja: ${valid.join(', ')}</div>` : '';
+  const label = `<label for="${id}" class="${req ? 'req' : ''}">${esc(f.title)}</label>`;
+  const ro = f.readOnly ? ' readonly' : '';
+  switch (f.type) {
+    case 'TEXTAREA':
+      return `<div class="field">${label}${hint}<textarea id="${id}" rows="3" data-key="${key}"${ro}>${esc(val)}</textarea>${vhint}</div>`;
+    case 'NUMBER':
+      return `<div class="field">${label}${hint}<input id="${id}" type="number" data-key="${key}" value="${esc(val)}"${ro}></div>`;
+    case 'DATEPICKER':
+      return `<div class="field">${label}${hint}<input id="${id}" type="date" data-key="${key}" value="${esc(val)}"${ro}></div>`;
+    case 'SELECT': {
+      const opts = f.options.length ? f.options.map(o => o.name) : (f.dictionaryName ? ['(słownik ' + f.dictionaryName + ')'] : []);
+      return `<div class="field">${label}${hint}<select id="${id}" data-key="${key}"${f.readOnly ? ' disabled' : ''}><option value="">Wybierz</option>` +
+        opts.map(o => `<option${o === val ? ' selected' : ''}>${esc(o)}</option>`).join('') + `</select></div>`;
+    }
+    case 'RADIO':
+    case 'CHECKBOX': {
+      const type = f.type === 'RADIO' ? 'radio' : 'checkbox';
+      const chosen = answers[key] || [];
+      return `<div class="field" role="group" aria-labelledby="${id}-l"><div id="${id}-l" class="${req ? 'req' : ''}" style="font-weight:600">${esc(f.title)}</div>${hint}` +
+        f.options.map((o, i) => `<label class="opt"><input type="${type}" name="${id}" value="${esc(o.name)}" data-key="${key}"${chosen.includes(o.name) ? ' checked' : ''}> ${esc(o.name)}</label>`).join('') + `</div>`;
+    }
+    case 'FILE_UPLOADER':
+      return `<div class="field">${label}${hint}<input id="${id}" type="file" disabled></div>`;
+    case 'TEXT_BLOCK':
+    case 'INFO_SECTION':
+      return `<div class="field textblock">${safeHtml(f.description)}</div>`;
+    case 'CONSENT_SECTION':
+      return (f.consentSectionConfig?.consents || []).map((c, i) =>
+        `<label class="opt"><input type="checkbox"> <span>${safeHtml(c.description)}${c.required ? ' <span class="error">*</span>' : ''}</span></label>`).join('');
+    default:
+      return `<div class="field">${label}${hint}${ext}<input id="${id}" type="text" data-key="${key}" value="${esc(val || (f.defaultValueType === 'EXTERNAL_SYSTEM' ? '' : f.defaultValue || ''))}"${ro}>${vhint}</div>`;
+  }
+}
+
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function strip(html) { return String(html || '').replace(/<[^>]*>/g, '').trim(); }
+function safeHtml(html) {
+  const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+  doc.querySelectorAll('script,style,iframe,object,embed,img').forEach(n => n.remove());
+  doc.querySelectorAll('*').forEach(n => [...n.attributes].forEach(a => {
+    if (a.name.startsWith('on') || (a.name === 'href' && /^\s*javascript:/i.test(a.value))) n.removeAttribute(a.name);
+  }));
+  return doc.body.innerHTML;
+}
+function highlight(json) {
+  return esc(json).replace(/(&quot;(?:[^&]|&(?!quot;))*?&quot;)(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?/g, (m, str, colon, lit) =>
+    str ? `<span class="${colon ? 'k' : 's'}">${str}</span>${colon || ''}` : lit ? `<span class="b">${m}</span>` : `<span class="n">${m}</span>`);
+}
+</script>
+</body>
+</html>
