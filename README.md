@@ -13,9 +13,9 @@ Projekt powstał na hackathonie **HackNation 2026**, wyzwanie *Cyfryzacja formul
 - Standardy: Wzorcowa konfiguracja to sekcje predefiniowane (adresat, podmiot wniosku,
   dane z rejestru, adresy, pełnomocnictwo, opłata skarbowa, kontakt, zgody). FormBridge buduje je deterministycznie
   według „Standardów i dobrych praktyk projektowania formularzy”, razem z warunkami JSONata.
-- Reguły + polski model językowy: Reguły rozpoznają pola właściwe dla wniosku (typy, opcje, pola warunkowe,
-  sekcje powtarzające się, oświadczenia). Lokalny model PLLuM poprawia etykiety i typy pól,
-  gdy reguły nie są pewne. Gdy model nie odpowie w limicie czasu, zostaje wynik reguł.
+- Reguły + opcjonalny polski model językowy: Reguły rozpoznają pola właściwe dla wniosku (typy, opcje, pola warunkowe,
+  sekcje powtarzające się, oświadczenia). Opcjonalnie lokalny model PLLuM może poprawiać etykiety i typy pól,
+  gdy reguły nie są pewne (zalecany serwer z GPU – patrz „Model językowy”). Gdy model nie odpowie w limicie czasu, zostaje wynik reguł.
 - Kontrola zgodności: Każdy wynik jest sprawdzany względem „Reguł technicznych konfiguracji formularzy”.
 - W całości lokalnie. Brak karty graficznej, bez zewnętrznych API i usług SaaS. Dane nie opuszczają serwera.
 - Powtarzalność: Ten sam plik zawsze daje ten sam JSON (deterministyczne identyfikatory UUID).
@@ -23,14 +23,17 @@ Projekt powstał na hackathonie **HackNation 2026**, wyzwanie *Cyfryzacja formul
 ## Szybki start
 
 ```bash
-# 1. Jednorazowo: pobranie modeli językowych do ./models (ok. 4 GB)
+# 1. Jednorazowo: pobranie modelu PLLuM do ./models
 ./scripts/download-models.sh            # Windows: .\scripts\download-models.ps1
+#    opcjonalnie także zapasowy Bielik:   ./scripts/download-models.sh --with-bielik
+#    i uruchomienie z nim:                docker compose --profile fallback up --build
 
 # 2. Konfiguracja
 cp .env.example .env                     # ustawić FORMBRIDGE_JWT_SECRET, FORMBRIDGE_CLIENT_ID, FORMBRIDGE_CLIENT_SECRET
 
 # 3. Uruchomienie
-docker compose up --build
+docker compose up --build                      # same reguły i szablony
+# docker compose --profile llm up --build      # z modelem PLLuM (ustaw FORMBRIDGE_LLM_ENABLED=true w .env)
 
 # 4. Frontend: http://localhost:8080
 ```
@@ -54,7 +57,7 @@ Wszystkie parametry ustawia się zmiennymi środowiskowymi; sekrety podaje się 
 | `FORMBRIDGE_JWT_SECRET` | klucz HS256 (min. 32 bajty) | wymagany |
 | `FORMBRIDGE_JWT_TTL` | ważność tokenu | `1h` |
 | `FORMBRIDGE_CLIENT_ID`, `FORMBRIDGE_CLIENT_SECRET` | dane klienta do pobrania tokenu | wymagane |
-| `FORMBRIDGE_LLM_ENABLED` | użycie lokalnego modelu językowego | `true` |
+| `FORMBRIDGE_LLM_ENABLED` | użycie lokalnego modelu językowego | `false` |
 | `FORMBRIDGE_LLM_ENDPOINTS` | serwery modeli `url=nazwa`, w kolejności użycia | PLLuM, potem Bielik |
 | `FORMBRIDGE_LLM_TIMEOUT` | łączny limit pracy modelu na formularz | `45s` |
 | `FORMBRIDGE_OCR_LANGUAGE` | język OCR (Tesseract) | `pol` |
@@ -83,6 +86,14 @@ Błędy zwracane są w formacie RFC 7807 (`application/problem+json`): 400 (brak
 401 (brak lub błędny token), 413 (za duży plik), 415 (nieobsługiwany format lub MIME niezgodny z rozszerzeniem),
 422 (nie udało się odczytać formularza).
 
+## Model językowy
+
+Rdzeń FormBridge działa bez modelu językowego. Lokalny model PLLuM-4B-instruct-2512 (serwer llama.cpp w osobnym
+kontenerze, bez publikowanych portów) można włączyć jako dodatek poprawiający etykiety pól. Pomiar na laptopie
+z 6 rdzeniami CPU bez GPU: ok. 20 s na 5 etykiet przy 4–5 tokenach/s, a jakość poprawek była niewystarczająca,
+dlatego w domyślnej konfiguracji model jest wyłączony. Na serwerze z GPU lub większą liczbą rdzeni ten sam kontener działa znacznie
+szybciej; wtedy wystarczy `FORMBRIDGE_LLM_ENABLED=true` i `docker compose --profile llm up`.
+
 ## Architektura
 
 Opis architektury, przepływu żądania i decyzji projektowych: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -99,7 +110,7 @@ Tesseract OCR, Jackson, llama.cpp. Modele: PLLuM-4B-instruct-2512 (Apache 2.0), 
 
 ## Wykorzystanie AI przy tworzeniu
 
-Przy analizie materiałów, projektowaniu i pisaniu kodu korzystano z asystentów AI (Claude, opencode).
+Przy analizie materiałów, projektowaniu i pisaniu kodu korzystano ze wsparcia asystentów AI (Claude, opencode).
 Decyzje projektowe, weryfikacja wyników i odpowiedzialność za kod należą do autora.
 W działającym rozwiązaniu AI to wyłącznie lokalne modele (Tesseract OCR, PLLuM, Bielik).
 
