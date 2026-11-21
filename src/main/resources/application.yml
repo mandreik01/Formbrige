@@ -1,0 +1,55 @@
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-stacktrace: never
+    include-message: never
+
+spring:
+  application:
+    name: formbridge
+  servlet:
+    multipart:
+      max-file-size: ${FORMBRIDGE_UPLOAD_MAX_FILE_SIZE:20MB}
+      max-request-size: ${FORMBRIDGE_UPLOAD_MAX_REQUEST_SIZE:220MB}
+      file-size-threshold: 1MB
+  mvc:
+    problemdetails:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+formbridge:
+  upload:
+    max-file-size: ${FORMBRIDGE_UPLOAD_MAX_FILE_SIZE:20MB}
+  batch:
+    max-files: ${FORMBRIDGE_BATCH_MAX_FILES:20}
+  security:
+    enabled: ${FORMBRIDGE_SECURITY_ENABLED:true}
+  jwt:
+    # sekret wyłącznie ze zmiennej środowiskowej – nigdy w repozytorium
+    secret: ${FORMBRIDGE_JWT_SECRET:}
+    ttl: ${FORMBRIDGE_JWT_TTL:1h}
+    issuer: ${FORMBRIDGE_JWT_ISSUER:formbridge}
+  auth:
+    client-id: ${FORMBRIDGE_CLIENT_ID:}
+    client-secret: ${FORMBRIDGE_CLIENT_SECRET:}
+  ocr:
+    language: ${FORMBRIDGE_OCR_LANGUAGE:pol}
+    timeout: ${FORMBRIDGE_OCR_TIMEOUT:60s}
+  llm:
+    enabled: ${FORMBRIDGE_LLM_ENABLED:false}
+    endpoints: ${FORMBRIDGE_LLM_ENDPOINTS:http://llm-pllum:8080=PLLuM-4B-instruct-2512,http://llm-bielik:8080=Bielik-1.5B-v3.0-Instruct}
+    timeout: ${FORMBRIDGE_LLM_TIMEOUT:45s}
+
+logging:
+  level:
+    root: INFO
+    pl.formbridge: INFO
