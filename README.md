@@ -99,7 +99,14 @@ Błędy zwracane są w formacie RFC 7807 (`application/problem+json`):
 401 (brak lub błędny token),
 413 (za duży plik),
 415 (nieobsługiwany format lub MIME niezgodny z rozszerzeniem),
-422 (nie udało się odczytać formularza).
+422 (nie udało się odczytać formularza),
+500 (nieoczekiwany błąd; odpowiedź bez śladu stosu).
+Komunikaty błędów są po polsku.
+
+Obsługiwane rozszerzenia: `pdf`, `doc`, `docx`, `ods`, `xlsx`, `jpg`, `jpeg`, `jpe`, `png` (wielkość liter
+bez znaczenia). Typ MIME jest wykrywany z treści pliku (Apache Tika), nie z nazwy, i musi pasować do rozszerzenia.
+Dopuszczone są dwa przypadki spotykane w materiałach urzędów: plik `.doc` zawierający w środku DOCX oraz
+rozszerzenie `.jpe`.
 
 ## Model językowy
 
