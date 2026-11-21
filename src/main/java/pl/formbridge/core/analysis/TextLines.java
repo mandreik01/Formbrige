@@ -23,6 +23,7 @@ final class TextLines {
     private static final Pattern SLASH_HINT = Pattern.compile("^(/[^/]{1,30}/)\\s+(\\p{L}.*)$");
     private static final Pattern LEADING_NUMBER = Pattern.compile("^(\\d{1,2})\\.\\s");
 
+    // tylko kolejne numery (8., 9., 10.), żeby nie pociąć zdania z liczbą w środku
     static List<String> splitNumbered(String line) {
         Matcher first = LEADING_NUMBER.matcher(line);
         if (!first.find()) {
@@ -53,6 +54,7 @@ final class TextLines {
                 starts.add(m.start());
             }
         }
+        // „TAK ❑ NIE ❑” (kratka bez opisu za nią) zostaje w całości
         if (starts.isEmpty() || withText != BOX.matcher(line).results().count()) {
             return List.of(line);
         }
@@ -78,6 +80,7 @@ final class TextLines {
                 .replace('\t', ' ')
                 .replace('\f', '\n');
         List<String> out = new ArrayList<>();
+        // PDFBox stawia kolumny strony obok siebie; 8+ spacji to granica kolumn
         for (String raw : t.split("\\R|[ ]{8,}")) {
             String line = DATE_MASK.matcher(raw.replaceAll("[ ]{2,}", " ")).replaceAll("").strip();
             Matcher hint = SLASH_HINT.matcher(line);

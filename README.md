@@ -132,7 +132,7 @@ Tesseract OCR, Jackson, llama.cpp. Modele: PLLuM-4B-instruct-2512 (Apache 2.0)
 
 ## Wykorzystanie AI przy tworzeniu
 
-Przy analizie materiałów i pisaniu kodu korzystano ze wsparcia kolegów asystentów AI (Claude, Opencode).
+Przy analizie materiałów i pisaniu kodu korzystano ze wsparcia asystentów AI (Claude, Opencode).
 Decyzje projektowe i projekt systemu oraz weryfikacja wyników i odpowiedzialność za kod należą do autora.
 W działającym rozwiązaniu AI to wyłącznie lokalne modele (Tesseract OCR, PLLuM).
 

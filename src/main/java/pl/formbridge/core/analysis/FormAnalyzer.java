@@ -293,6 +293,7 @@ public final class FormAnalyzer {
                 try {
                     handle(i);
                 } catch (RuntimeException e) {
+                    // jedna nietypowa linia nie może przerwać konwersji całego wniosku
                     int line = i;
                     LOG.log(Level.FINE, e, () -> "Pominięto linię " + (line + 1) + ": " + lines.get(line));
                 }
@@ -586,6 +587,7 @@ public final class FormAnalyzer {
                 return;
             }
             if ((endsColon || nextLeaderOnly) && words <= 25) {
+                // „❑ suka / ❑ mikroprocesor …… / Sposób oznakowania: / ❑ tatuaż” – opcja należy do następnej grupy
                 if (optionGroup != null && lastOptionLine == i - 1 && optionGroup.options.size() > 2
                         && TextLines.hasLeader(lines.get(i - 1)) && TextLines.CHECKBOX.matcher(next).find()) {
                     optionGroup.options.remove(optionGroup.options.size() - 1);
