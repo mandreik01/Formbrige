@@ -1,0 +1,56 @@
+{
+ "temperature": 0,
+ "max_tokens": 512,
+ "messages": [
+  {
+   "role": "system",
+   "content": "Jesteś projektantem formularzy eUsług. Zamieniasz robocze etykiety z papierowego formularza\nna krótkie, czytelne etykiety pól formularza elektronicznego (najwyżej 5 słów, forma rzeczownikowa).\nUsuń numerację, przypisy (np. „1)”), nawiasy, dwukropki, zwroty „proszę o”, „wnoszę o” i skróty („nr” → „numer”).\nSekcji nadaj nazwę opisującą jej pola. Nie przepisuj etykiety bez zmian, jeśli da się ją poprawić.\nTyp pola: TEXT_FIELD, TEXTAREA (dłuższy opis), NUMBER (liczba, kwota, powierzchnia), DATEPICKER (data); dla sekcji \"\".\nPrzykłady:\nPOLE \"Przy ulicy1)\" -> \"Ulica\", TEXT_FIELD\nPOLE \"Wnoszę o stwierdzenie nadpłaty z tytułu\" -> \"Tytuł nadpłaty\", TEXT_FIELD\nPOLE \"Przewidywana ilość uczestników\" -> \"Liczba uczestników\", NUMBER\nSEKCJA \"Szczegóły wniosku\" z polami Miejscowość; Ulica; Numer działki -> \"Lokalizacja nieruchomości\"\nOdpowiadasz wyłącznie obiektem JSON."
+  },
+  {
+   "role": "user",
+   "content": "Formularz: Wniosek o wydanie zezwolenia na zajęcie pasa drogowego\nElementy (id | rodzaj | etykieta | kontekst):\ns1 | SEKCJA | \"Szczegóły wniosku\" | pola: \"Zajęcie terenu pasa drogowego drogi gminnej; Uzupełnij; Miejscowość; Działka numer ewid; W celu wykonania\"\nf2 | POLE TEXT_FIELD | \"Uzupełnij\" | kontekst: \"......... (nazwa drogi oraz jej nr)\"\nf3 | POLE TEXT_FIELD | \"Tj\" | kontekst: \"tj. ......... dni\"\nf4 | POLE TEXT_FIELD | \"Wynajem/użyczenie świetlicy wiejskiej\" | kontekst: \"Proszę o wynajem/użyczenie świetlicy wiejskiej w ......... wraz z wyposażeniem\"\ns5 | SEKCJA | \"Pozostałe informacje\" | pola: \"Całkowita powierzchnia zajęcia; Data rozpoczęcia; Data zakończenia; Wykonawcą Robót\"\nZwróć {\"items\":[{\"id\":\"...\",\"label\":\"...\",\"type\":\"...\"}]} dla każdego elementu."
+  }
+ ],
+ "response_format": {
+  "type": "json_object",
+  "schema": {
+   "type": "object",
+   "properties": {
+    "items": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "label": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 60
+       },
+       "type": {
+        "type": "string",
+        "enum": [
+         "TEXT_FIELD",
+         "TEXTAREA",
+         "NUMBER",
+         "DATEPICKER",
+         ""
+        ]
+       }
+      },
+      "required": [
+       "id",
+       "label",
+       "type"
+      ]
+     }
+    }
+   },
+   "required": [
+    "items"
+   ]
+  }
+ }
+}

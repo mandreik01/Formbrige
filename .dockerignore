@@ -1,0 +1,11 @@
+.git
+.idea
+*.iml
+target
+models
+output
+docs
+scripts
+.env
+*.md
+!README.md

@@ -1,0 +1,41 @@
+name: formbridge
+
+services:
+  app:
+    build: .
+    image: formbridge:1.0.0
+    ports:
+      - "8080:8080"
+    env_file: .env
+    environment:
+      FORMBRIDGE_LLM_ENDPOINTS: ${FORMBRIDGE_LLM_ENDPOINTS:-http://llm-pllum:8080=PLLuM-4B-instruct-2512,http://llm-bielik:8080=Bielik-1.5B-v3.0-Instruct}
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  llm-pllum:
+    profiles: ["llm"]
+    image: ghcr.io/ggml-org/llama.cpp:${LLAMA_CPP_TAG:-server-b6000}
+    command: >
+      -m /models/${PLLUM_MODEL:-PLLuM-4B-instruct-2512.i1-Q4_K_M.gguf}
+      --host 0.0.0.0 --port 8080 -c 4096 -np 1 -t ${LLM_THREADS:-6} -tb ${LLM_THREADS:-6} --jinja
+    volumes:
+      - ./models:/models:ro
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  llm-bielik:
+    profiles: ["llm-fallback"]
+    image: ghcr.io/ggml-org/llama.cpp:${LLAMA_CPP_TAG:-server-b6000}
+    command: >
+      -m /models/${BIELIK_MODEL:-Bielik-1.5B-v3.0-Instruct.Q8_0.gguf}
+      --host 0.0.0.0 --port 8080 -c 4096 -np 1 -t ${LLM_THREADS:-6} -tb ${LLM_THREADS:-6} --jinja
+    volumes:
+      - ./models:/models:ro
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
