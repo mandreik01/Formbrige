@@ -716,6 +716,12 @@ public final class FormAnalyzer {
             for (int k = 0; k < fieldLabels.size(); k++) {
                 String label = phraseLabel(fieldLabels.get(k));
                 String unit = k == fieldLabels.size() - 1 ? tail : "";
+                // „tj. ……… dni, zgodnie z …” – skrót zamiast etykiety, znaczenie niesie jednostka po kropkach
+                Matcher countUnit = COUNT_UNIT.matcher(unit);
+                if (label.replaceAll("[^\\p{L}]", "").length() <= 3 && countUnit.lookingAt()) {
+                    label = "Liczba " + countUnit.group(1).toLowerCase(Locale.ROOT);
+                    unit = countUnit.group(1);
+                }
                 if (current == null && APPLICANT_FIELD.matcher(label).matches()) {
                     continue;
                 }
@@ -859,6 +865,7 @@ public final class FormAnalyzer {
             }
         }
 
+        private static final Pattern COUNT_UNIT = Pattern.compile("(?iU)^(dni|dnia|miesięcy|tygodni|lat|szt)\\b");
         private final List<java.util.function.Supplier<FieldSpec>> deferred = new ArrayList<>();
         private String carriedOption;
         private int lastOptionLine = -2;
