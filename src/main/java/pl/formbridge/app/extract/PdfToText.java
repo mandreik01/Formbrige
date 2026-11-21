@@ -1,67 +1,40 @@
 package pl.formbridge.app.extract;
 
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-// Reguły analizy są strojone na wyjściu pdftotext (poppler), więc gdy jest dostępny,
-// używamy go zamiast Tiki, która inaczej składa linie w formularzach z tabelami.
+// Tekst strona po stronie wprost z PDFBox, posortowany według położenia na stronie.
+// Tika składa linie formularzy z tabelami w innej kolejności, a reguły analizy są
+// testowane na tym wyjściu (src/test/resources/forms).
 class PdfToText {
 
     private static final Logger LOG = Logger.getLogger(PdfToText.class.getName());
-    private static final long TIMEOUT_SECONDS = 30;
-
-    private final String command;
-
-    PdfToText() {
-        this("pdftotext");
-    }
-
-    PdfToText(String command) {
-        this.command = command;
-    }
 
     Optional<List<String>> pages(byte[] pdf) {
-        Path in = null;
-        try {
-            in = Files.createTempFile("formbridge-", ".pdf");
-            Files.write(in, pdf);
-            Process process = new ProcessBuilder(command, "-enc", "UTF-8", in.toString(), "-")
-                    .redirectError(ProcessBuilder.Redirect.DISCARD)
-                    .start();
-            byte[] out = process.getInputStream().readAllBytes();
-            if (!process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                process.destroyForcibly();
-                return Optional.empty();
-            }
-            if (process.exitValue() != 0) {
-                return Optional.empty();
-            }
-            List<String> pages = Arrays.stream(new String(out, StandardCharsets.UTF_8).split("\f"))
-                    .filter(p -> !p.isBlank())
-                    .toList();
-            return pages.isEmpty() ? Optional.empty() : Optional.of(pages);
-        } catch (IOException e) {
-            LOG.log(Level.FINE, "pdftotext niedostępny, używam Tiki", e);
-            return Optional.empty();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return Optional.empty();
-        } finally {
-            if (in != null) {
-                try {
-                    Files.deleteIfExists(in);
-                } catch (IOException ignored) {
-                    // plik tymczasowy w /tmp, system i tak go sprzątnie
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            PDFTextStripper stripper = new PDFTextStripper();
+            stripper.setSortByPosition(true);
+            List<String> pages = new ArrayList<>(document.getNumberOfPages());
+            for (int p = 1; p <= document.getNumberOfPages(); p++) {
+                stripper.setStartPage(p);
+                stripper.setEndPage(p);
+                String text = stripper.getText(document);
+                if (!text.isBlank()) {
+                    pages.add(text);
                 }
             }
+            return pages.isEmpty() ? Optional.empty() : Optional.of(List.copyOf(pages));
+        } catch (IOException e) {
+            LOG.log(Level.FINE, "PDFBox nie odczytał tekstu, używam Tiki", e);
+            return Optional.empty();
         }
     }
 }
