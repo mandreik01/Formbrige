@@ -43,7 +43,7 @@ src/main/resources/
 
 src/test/                      testy core (9 wniosków z wyzwania) i app (API, walidacja, JWT, ekstrakcja)
 scripts/                       pobranie modeli, test modelu, generowanie wyników dla katalogu PDF
-Dockerfile, docker-compose.yml obraz aplikacji (z Tesseractem i popplerem), opcjonalne serwery modeli
+Dockerfile, docker-compose.yml obraz aplikacji (z Tesseractem), opcjonalne serwery modeli
 ```
 
 ## 2. Komponenty
@@ -78,7 +78,7 @@ flowchart LR
     end
 
     WEB --> CONV
-    EXT --> PT["pdftotext (poppler)"]
+    EXT --> PT["PDFBox"]
     EXT --> TK["Apache Tika"]
     EXT --> OCR["Tesseract OCR (pol)"]
     AI -.->|"HTTP /v1/chat/completions"| LLM["llama.cpp: PLLuM-4B"]
@@ -147,8 +147,8 @@ jednego pliku nie przerywa pozostałych.
 ```mermaid
 flowchart TD
     IN["plik po walidacji"] --> T{"typ"}
-    T -->|"PDF"| P1["pdftotext -enc UTF-8"]
-    P1 -->|"brak programu lub błąd"| P2["Tika"]
+    T -->|"PDF"| P1["PDFBox: tekst według położenia na stronie"]
+    P1 -->|"błąd odczytu"| P2["Tika"]
     P1 --> L{"min. 50 znaków na stronę?"}
     P2 --> L
     L -->|"tak"| OUT["strony tekstu"]
@@ -161,9 +161,12 @@ flowchart TD
     OUT --> D["ExtractedDocument"]
 ```
 
-Dlaczego najpierw `pdftotext`: reguły w `FormAnalyzer` są strojone i testowane
-na jego wyjściu. Tika inaczej składa linie formularzy z tabelami. Zostało to sprawdzone
-na wnioskach z wyzwania i dawało to błędne pola.
+Dlaczego PDF czytamy wprost przez PDFBox, a nie przez Tikę: Tika inaczej składa
+linie formularzy z tabelami, co na wnioskach z wyzwania dawało błędne pola.
+PDFBox z sortowaniem według położenia daje układ, na którym są testowane reguły
+(`src/test/resources/forms`). Linie z kilkoma kolumnami, opcjami z kratkami
+w jednym wierszu („Płeć: ❑ pies ❑ suka”) albo kolejnymi numerami pozycji
+(„8. Kraj 9. Województwo”) rozdziela `TextLines.normalize`.
 
 ## 5. Analiza i budowa formularza (core)
 
@@ -235,7 +238,7 @@ sequenceDiagram
 ```mermaid
 flowchart LR
     subgraph DC["docker compose"]
-        APPC["app: eclipse-temurin JRE 21 + tesseract-ocr-pol + poppler-utils, port 8080"]
+        APPC["app: eclipse-temurin JRE 21 + tesseract-ocr-pol, port 8080"]
         P["llm-pllum (profil llm): llama.cpp server + PLLuM-4B Q4_K_M"]
     end
     ENV[".env"] --> APPC
@@ -265,7 +268,7 @@ konwersję do 20–50 s. Bez modelu konwersja trwa poniżej sekundy.
 | `core` bez Springa | łatwe testy i możliwość osadzenia w innym systemie                                       |
 | Deterministyczne UUID v3 | ten sam wniosek daje ten sam wynik, a różnice w Git są czytelne                          |
 | `FormRules` przed zwróceniem wyniku | lepiej zwrócić 422 z opisem niż JSON, którego eUsługa nie przyjmie                       |
-| `pdftotext` przed Tiką dla PDF | układ linii, na którym reguły są przetestowane                                           |
+| PDFBox zamiast Tiki dla PDF | układ linii, na którym reguły są przetestowane; licencja Apache 2.0 |
 
 ## 9. Ograniczenia
 
