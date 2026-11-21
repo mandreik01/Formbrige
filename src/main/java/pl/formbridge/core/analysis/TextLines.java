@@ -8,12 +8,10 @@ import java.util.regex.Pattern;
 
 final class TextLines {
 
-    // wykropkowanie do wpisania: min. 4 kropki/podkreślenia (wielokropek zamieniamy wcześniej na 4 kropki)
     static final Pattern LEADER = Pattern.compile("(?:[._][ \\t]?){4,}[ \\t]*");
     static final Pattern CHECKBOX = Pattern.compile("^[\\u25A1\\u25A0\\u25AB\\u25AA\\u25CB\\u25CF\\u25EF\\u2610\\u2611\\u2612"
             + "\\u274F\\u2750\\u2751\\u2752\\u274E\\uF000-\\uF0FF\\u2022\\u25E6\\u2023\\u2043\\u2219]\\s*");
 
-    // resztki kratek na datę („Data uiszczenia opłaty - -”) w tekście z PDFBox
     private static final Pattern DATE_MASK = Pattern.compile("(?:\\s+-){2,}\\s*$");
     private static final Pattern BOX = Pattern.compile(
             "[\\u25A1\\u2610\\u2611\\u2612\\u274F\\u2750\\u2751\\u2752\\u274E\\uF000-\\uF0FF]");
@@ -25,8 +23,6 @@ final class TextLines {
     private static final Pattern SLASH_HINT = Pattern.compile("^(/[^/]{1,30}/)\\s+(\\p{L}.*)$");
     private static final Pattern LEADING_NUMBER = Pattern.compile("^(\\d{1,2})\\.\\s");
 
-    // „8. Kraj 9. Województwo 10. Gmina” → trzy linie; tniemy tylko przy kolejnych numerach,
-    // żeby nie rozbić zdania z liczbą w środku
     static List<String> splitNumbered(String line) {
         Matcher first = LEADING_NUMBER.matcher(line);
         if (!first.find()) {
@@ -36,21 +32,17 @@ final class TextLines {
         List<String> parts = new ArrayList<>();
         int from = 0;
         int searchFrom = first.end();
-        while (true) {
-            Matcher next = Pattern.compile("\\s" + (n + 1) + "\\.\\s").matcher(line);
-            if (!next.find(searchFrom)) {
-                break;
-            }
-            parts.add(line.substring(from, next.start()).strip());
-            from = next.start() + 1;
-            searchFrom = next.end();
+        int at;
+        while ((at = line.indexOf(" " + (n + 1) + ". ", searchFrom)) >= 0) {
+            parts.add(line.substring(from, at).strip());
+            from = at + 1;
+            searchFrom = at + 1;
             n++;
         }
         parts.add(line.substring(from).strip());
         return parts;
     }
 
-    // „Płeć: ❑ pies ❑ suka” → „Płeć:”, „❑ pies”, „❑ suka”; PDFBox składa takie wiersze w jedną linię
     static List<String> splitInlineBoxes(String line) {
         List<Integer> starts = new ArrayList<>();
         int withText = 0;
@@ -61,7 +53,6 @@ final class TextLines {
                 starts.add(m.start());
             }
         }
-        // każda kratka musi mieć opis za sobą – „TAK ❑ NIE ❑” zostaje w całości
         if (starts.isEmpty() || withText != BOX.matcher(line).results().count()) {
             return List.of(line);
         }
@@ -87,10 +78,8 @@ final class TextLines {
                 .replace('\t', ' ')
                 .replace('\f', '\n');
         List<String> out = new ArrayList<>();
-        // szeroka przerwa w linii to granica kolumn strony (PDFBox stawia kolumny obok siebie)
         for (String raw : t.split("\\R|[ ]{8,}")) {
             String line = DATE_MASK.matcher(raw.replaceAll("[ ]{2,}", " ")).replaceAll("").strip();
-            // podpis pola „/ adres /” sklejony z tekstem obok: „/ adres / Urząd Miasta …”
             Matcher hint = SLASH_HINT.matcher(line);
             if (hint.matches()) {
                 out.add(hint.group(1));

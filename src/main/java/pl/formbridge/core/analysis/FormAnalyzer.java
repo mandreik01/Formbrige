@@ -13,10 +13,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class FormAnalyzer {
+
+    private static final Logger LOG = Logger.getLogger(FormAnalyzer.class.getName());
 
     public record Analysis(String title, String office, boolean organ, ApplicantMode mode,
                            List<PageSpec> pages, List<FieldSpec.Consent> statements,
@@ -194,8 +198,9 @@ public final class FormAnalyzer {
                 String name = titleCase(l);
                 if (i + 1 < lines.size()) {
                     String next = lines.get(i + 1);
-                    boolean cont = next.length() < 60 && !next.matches(".*\\d.*") && !next.toLowerCase(Locale.ROOT).matches("^(ul\\.|ul |ulica|al\\.|aleja|pl\\.|os\\.).*")
-                            && !next.toLowerCase(Locale.ROOT).startsWith("al.") && !TITLE.matcher(next).matches()
+                    String low = next.toLowerCase(Locale.ROOT);
+                    boolean cont = next.length() < 60 && !next.matches(".*\\d.*")
+                            && !low.matches("^(ul\\.|ul |ulica|al\\.|aleja|pl\\.|os\\.).*") && !TITLE.matcher(next).matches()
                             && !TextLines.hasLeader(next) && !NUMBERED.matcher(next).matches();
                     if (cont && next.toLowerCase(Locale.ROOT).startsWith("wydział")) {
                         name = name + " – " + titleCase(next);
@@ -288,7 +293,8 @@ public final class FormAnalyzer {
                 try {
                     handle(i);
                 } catch (RuntimeException e) {
-                    // jedna nietypowa linia nie może wywrócić całej konwersji
+                    int line = i;
+                    LOG.log(Level.FINE, e, () -> "Pominięto linię " + (line + 1) + ": " + lines.get(line));
                 }
             }
             closeOptionGroup();
@@ -303,7 +309,6 @@ public final class FormAnalyzer {
                     String name = r.group(2).isBlank() && i + 1 < lines.size() ? lines.get(i + 1) : r.group(2);
                     if (TITLE.matcher(name).matches()) {
                         String clean = cleanTitle(name);
-                        // nagłówek grupy bywa przełamany („… Rady Miasta” / „Zgierza”): zostaje dłuższa wersja
                         String low = clean.toLowerCase(Locale.ROOT);
                         if (body.groupNames.stream().noneMatch(g -> g.toLowerCase(Locale.ROOT).startsWith(low))) {
                             body.groupNames.removeIf(g -> low.startsWith(g.toLowerCase(Locale.ROOT)));
@@ -317,6 +322,11 @@ public final class FormAnalyzer {
             }
         }
 
+        private static boolean sharesPrefix(String text, String group) {
+            String g = group.toLowerCase(Locale.ROOT);
+            return text.toLowerCase(Locale.ROOT).startsWith(g.substring(0, Math.min(25, g.length())));
+        }
+
         private void handle(int i) {
             String line = lines.get(i);
             String next = i + 1 < lines.size() ? lines.get(i + 1) : "";
@@ -327,9 +337,12 @@ public final class FormAnalyzer {
                     String name = r.group(2).isBlank() ? next : r.group(2);
                     String clean = TITLE.matcher(name).matches() ? cleanTitle(name) : null;
                     if (clean != null) {
-                        String match = body.groupNames.stream().filter(g -> g.equalsIgnoreCase(clean)
-                                || clean.toLowerCase(Locale.ROOT).startsWith(g.toLowerCase(Locale.ROOT).substring(0, Math.min(25, g.length())))).findFirst().orElse(null);
-                        if (match != null && (currentGroup != null || !lines.subList(i + 1, Math.min(lines.size(), i + 6)).stream().allMatch(l -> ROMAN.matcher(l).matches() || TITLE.matcher(l).matches()))) {
+                        String match = body.groupNames.stream()
+                                .filter(g -> g.equalsIgnoreCase(clean) || sharesPrefix(clean, g))
+                                .findFirst().orElse(null);
+                        boolean tableOfContents = currentGroup == null && lines.subList(i + 1, Math.min(lines.size(), i + 6))
+                                .stream().allMatch(l -> ROMAN.matcher(l).matches() || TITLE.matcher(l).matches());
+                        if (match != null && !tableOfContents) {
                             closeOptionGroup();
                             currentGroup = match;
                             current = null;
@@ -339,8 +352,7 @@ public final class FormAnalyzer {
                     }
                     return;
                 }
-                if (TITLE.matcher(line).matches() && body.groupNames.stream().anyMatch(g -> cleanTitle(line).toLowerCase(Locale.ROOT)
-                        .startsWith(g.toLowerCase(Locale.ROOT).substring(0, Math.min(25, g.length()))))) {
+                if (TITLE.matcher(line).matches() && body.groupNames.stream().anyMatch(g -> sharesPrefix(cleanTitle(line), g))) {
                     return;
                 }
             }
@@ -574,8 +586,6 @@ public final class FormAnalyzer {
                 return;
             }
             if ((endsColon || nextLeaderOnly) && words <= 25) {
-                // ekstrakcja tekstu potrafi wstawić etykietę kolejnej grupy po jej pierwszej opcji
-                // („❑ suka / ❑ mikroprocesor …… / Sposób oznakowania: / ❑ tatuaż”)
                 if (optionGroup != null && lastOptionLine == i - 1 && optionGroup.options.size() > 2
                         && TextLines.hasLeader(lines.get(i - 1)) && TextLines.CHECKBOX.matcher(next).find()) {
                     optionGroup.options.remove(optionGroup.options.size() - 1);
@@ -669,7 +679,8 @@ public final class FormAnalyzer {
             }
             if (TextLines.isLeaderOnly(line)) {
                 String after = idx + 1 < lines.size() ? lines.get(idx + 1).toLowerCase(Locale.ROOT) : "";
-                if (after.contains("podpis") || after.matches("(?U)^[(/]\\s*(data|miejscowość)\\b.*") || after.matches("(?U)^data( i podpis.*)?\\s*$")) {
+                if (after.contains("podpis") || after.matches("(?U)^[(/]\\s*(data|miejscowość)\\b.*")
+                        || after.matches("(?U)^data( i podpis.*)?\\s*$")) {
                     return;
                 }
                 if (lastField != null && lastField.isInput() && pendingLabel == null && idx > 0
@@ -720,7 +731,6 @@ public final class FormAnalyzer {
             for (int k = 0; k < fieldLabels.size(); k++) {
                 String label = phraseLabel(fieldLabels.get(k));
                 String unit = k == fieldLabels.size() - 1 ? tail : "";
-                // „tj. ……… dni, zgodnie z …” – skrót zamiast etykiety, znaczenie niesie jednostka po kropkach
                 Matcher countUnit = COUNT_UNIT.matcher(unit);
                 if (label.replaceAll("[^\\p{L}]", "").length() <= 3 && countUnit.lookingAt()) {
                     label = "Liczba " + countUnit.group(1).toLowerCase(Locale.ROOT);
@@ -814,7 +824,7 @@ public final class FormAnalyzer {
 
         private void addAttachment(String text) {
             if (text.strip().startsWith("*")) {
-                return; // przypis pod listą załączników, nie załącznik
+                return;
             }
             ensureSection();
             String t = cleanLabel(text);

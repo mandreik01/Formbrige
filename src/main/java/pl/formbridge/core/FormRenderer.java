@@ -154,7 +154,6 @@ public final class FormRenderer {
         return StandardTexts.html(text);
     }
 
-    // UUID v3 z tytułu i ścieżki elementu: ten sam plik zawsze daje te same identyfikatory
     private static String id(FormSpec form, String path) {
         return UUID.nameUUIDFromBytes((form.title + "|" + path).getBytes(StandardCharsets.UTF_8)).toString();
     }

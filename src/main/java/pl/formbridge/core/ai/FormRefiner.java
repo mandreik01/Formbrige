@@ -129,7 +129,6 @@ public final class FormRefiner {
                                 retype(f, type);
                             }
                         } catch (IllegalArgumentException ignored) {
-                            // nieznany typ - zostaje typ z reguł
                         }
                     }
                     count++;
@@ -139,7 +138,6 @@ public final class FormRefiner {
                 }
             }
         } catch (Exception e) {
-            // zła odpowiedź modelu - zostają etykiety z reguł
         }
         return count;
     }

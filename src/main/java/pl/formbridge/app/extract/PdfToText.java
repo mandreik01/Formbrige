@@ -11,9 +11,6 @@ import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-// Tekst strona po stronie wprost z PDFBox, posortowany według położenia na stronie.
-// Tika składa linie formularzy z tabelami w innej kolejności, a reguły analizy są
-// testowane na tym wyjściu (src/test/resources/forms).
 class PdfToText {
 
     private static final Logger LOG = Logger.getLogger(PdfToText.class.getName());
