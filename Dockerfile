@@ -10,7 +10,7 @@ COPY src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests package
 
 FROM eclipse-temurin:${JRE_TAG}
-RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-pol \
+RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-pol poppler-utils \
     && addgroup -S app && adduser -S app -G app
 WORKDIR /app
 COPY --from=build --chown=app:app /src/target/formbridge.jar app.jar

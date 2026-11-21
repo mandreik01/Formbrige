@@ -37,6 +37,7 @@ public class TextExtractionService {
     private static final Logger LOG = Logger.getLogger(TextExtractionService.class.getName());
 
     private final OcrEngine ocr;
+    private final PdfToText pdfToText = new PdfToText();
 
     TextExtractionService(OcrEngine ocr) {
         this.ocr = ocr;
@@ -58,7 +59,7 @@ public class TextExtractionService {
     }
 
     private Extraction fromPdf(String fileName, byte[] bytes) {
-        List<String> pages = parse(fileName, bytes);
+        List<String> pages = pdfToText.pages(bytes).orElseGet(() -> parse(fileName, bytes));
         if (hasTextLayer(pages)) {
             return new Extraction(pages, false);
         }
