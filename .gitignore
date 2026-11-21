@@ -1,0 +1,23 @@
+# Build
+target/
+*.class
+
+# Modele językowe (pobierane skryptem, kilka GB)
+models/
+*.gguf
+
+# Sekrety i konfiguracja lokalna
+.env
+*.env.local
+
+# IDE i system
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logi i pliki tymczasowe
+*.log
+tmp/
+

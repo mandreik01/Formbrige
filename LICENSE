@@ -1,0 +1,12 @@
+Copyright (c) 2026 Autor projektu FormBridge. Wszelkie prawa zastrzeżone.
+
+Kod źródłowy i dokumentacja w tym repozytorium zostały przygotowane jako zgłoszenie do zadania konkursowego
+„Cyfryzacja formularzy” w ramach hackathonu HackNation 2026.
+
+Udostępnienie repozytorium nie oznacza udzielenia licencji. Zezwala się wyłącznie na przeglądanie, pobieranie,
+budowanie i uruchamianie kodu w celu oceny zgłoszenia przez jury, organizatora i Przyrzekającego nagrodę.
+
+W przypadku przyznania nagrody autorskie prawa majątkowe przechodzą na Przyrzekającego na zasadach określonych
+w Regulaminie zadania i umowie przeniesienia autorskich praw majątkowych.
+
+Biblioteki i modele zewnętrzne podlegają własnym licencjom – zob. THIRD_PARTY.md.
