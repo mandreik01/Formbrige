@@ -1,12 +1,12 @@
 # FormBridge – architektura i przepływ
 
 FormBridge zamienia wniosek (PDF, DOC/DOCX, XLSX/ODS, JPG/PNG) na plik JSON
-w formacie importu eUsługi (`importowanyPlikJsonSchemat`). Wszystko działa
+w formacie importu eUsługi (`importowanyPlikJsonSchemat`). Cała aplikacja działa
 lokalnie, bez GPU i bez usług chmurowych.
 
-Główna zasada: ok. 85% typowego e-formularza to sekcje standardowe ze
-Standardów COI (urząd, dane wnioskodawcy, adresy, pełnomocnictwo, kontakt,
-zgody, strona końcowa). Generujemy je deterministycznie z szablonów.
+Główna zasada: ok. 85% typowego e-formularza to sekcje standardowe umieszczone
+w dostarczonych plikach (urząd, dane wnioskodawcy, adresy, pełnomocnictwo, kontakt,
+zgody, strona końcowa). Aplikacja generuje je deterministycznie z szablonów.
 Z treści wniosku rozpoznajemy regułami tylko część merytoryczną. Model
 językowy jest opcjonalny i poprawia wyłącznie słabe etykiety.
 
@@ -17,10 +17,10 @@ src/main/java/pl/formbridge/
 ├── core/                      rdzeń: tekst → JSON (bez Springa)
 │   ├── FormBridgeConverter    punkt wejścia: convert / convertDetailed
 │   ├── ExtractedDocument      wejście: nazwa pliku, typ, strony tekstu, czy był OCR
-│   ├── StandardSections       sekcje standardowe COI (dane, adresy, pełnomocnictwo, kontakt, finish)
+│   ├── StandardSections       sekcje standardowe (dane, adresy, pełnomocnictwo, kontakt, finish)
 │   ├── StandardTexts          teksty HTML sekcji standardowych (resources/core/standard-texts.json)
 │   ├── FormRenderer           FormSpec → JSON: siatka x/y/rows/cols, UUID, flow, kolejność kluczy
-│   ├── FormRules              kontrola zgodności z Regułami technicznymi COI
+│   ├── FormRules              kontrola zgodności z Regułami technicznymi
 │   ├── TechNames              nazwy techniczne snake_case, unikalność
 │   ├── analysis/
 │   │   ├── TextLines          normalizacja linii, wykropkowania, znaki checkboxów
@@ -162,8 +162,8 @@ flowchart TD
 ```
 
 Dlaczego najpierw `pdftotext`: reguły w `FormAnalyzer` są strojone i testowane
-na jego wyjściu. Tika składa linie formularzy z tabelami inaczej. Sprawdziliśmy
-to na wnioskach z wyzwania i dawało to błędne pola.
+na jego wyjściu. Tika inaczej składa linie formularzy z tabelami. Zostało to sprawdzone
+na wnioskach z wyzwania i dawało to błędne pola.
 
 ## 5. Analiza i budowa formularza (core)
 
@@ -196,7 +196,7 @@ flowchart TD
 
 Najważniejsze reguły wyniku, zgodne ze wzorcami COI:
 
-- na najwyższym poziomie strony są tylko `SECTION` / `REPEATING_SECTION` (`x=0`, `cols=3`, `rows` = liczba pól + 1, `questionOrder` = `y`), pola są w `repeatingSectionGrid`;
+- na najwyższym poziomie strony jest tylko `SECTION` / `REPEATING_SECTION` (`x=0`, `cols=3`, `rows` = liczba pól + 1, `questionOrder` = `y`), pola są w `repeatingSectionGrid`;
 - strony `MAIN` i dokładnie jedna `FINISH` na końcu, na której nie ma pól do wypełnienia;
 - opcje mają `id = name =` etykietę i `techName` w snake_case;
 - dane z profilu (`MLPZ.name`, `MLPZ.surname`, `MLPZ.pesel`…) są wypełniane z `EXTERNAL_SYSTEM`;
@@ -258,14 +258,14 @@ konwersję do 20–50 s. Bez modelu konwersja trwa poniżej sekundy.
 
 ## 8. Najważniejsze decyzje
 
-| Decyzja | Powód |
-|---|---|
-| Reguły i szablony zamiast generowania całego JSON przez LLM | powtarzalność, zgodność ze Standardami COI, działanie bez GPU i chmury, czas poniżej sekundy |
-| Model językowy tylko jako opcja dla słabych etykiet | po pomiarach na zwykłym laptopie: wolny i bez poprawy jakości |
-| `core` bez Springa | łatwe testy i możliwość osadzenia w innym systemie |
-| Deterministyczne UUID v3 | ten sam wniosek daje ten sam wynik, a różnice w Git są czytelne |
-| `FormRules` przed zwróceniem wyniku | lepiej zwrócić 422 z opisem niż JSON, którego eUsługa nie przyjmie |
-| `pdftotext` przed Tiką dla PDF | układ linii, na którym reguły są przetestowane |
+| Decyzja | Powód                                                                                    |
+|---|------------------------------------------------------------------------------------------|
+| Reguły i szablony zamiast generowania całego JSON przez LLM | powtarzalność, zgodność ze standardami, działanie bez GPU i chmury, czas poniżej sekundy |
+| Model językowy tylko jako opcja dla słabych etykiet | po pomiarach na zwykłym laptopie: wolny i bez poprawy jakości                            |
+| `core` bez Springa | łatwe testy i możliwość osadzenia w innym systemie                                       |
+| Deterministyczne UUID v3 | ten sam wniosek daje ten sam wynik, a różnice w Git są czytelne                          |
+| `FormRules` przed zwróceniem wyniku | lepiej zwrócić 422 z opisem niż JSON, którego eUsługa nie przyjmie                       |
+| `pdftotext` przed Tiką dla PDF | układ linii, na którym reguły są przetestowane                                           |
 
 ## 9. Ograniczenia
 

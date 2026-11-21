@@ -1,29 +1,43 @@
 # FormBridge
 
-**Z papierowego wniosku do eUsługi w kilka sekund.**
+*Z papierowego wniosku do eUsługi w kilka sekund.*
 
 FormBridge to usługa REST, która przyjmuje formularz urzędowy (PDF, DOC, DOCX, ODS, XLSX, JPG, JPEG, PNG)
-i zwraca gotowy do importu JSON z konfiguracją formularza eUsługi: strony tematyczne, sekcje standardowe,
-dane inicjalne z rejestrów, słowniki, walidacje i warunki dynamiczne w JSONata.
+i zwraca gotowy do importu JSON z konfiguracją formularza eUsługi: 
+- strony tematyczne,
+- sekcje standardowe,
+- dane inicjalne z rejestrów,
+- słowniki,
+- walidacje i warunki dynamiczne w JSONata.
 
-Projekt powstał na hackathonie **HackNation 2026**, wyzwanie *Cyfryzacja formularzy* (Centralny Ośrodek Informatyki).
+Projekt powstał w ramach realizacji wyzwania *Cyfryzacja formularzy* przygotowanego przez Centralny Ośrodek Informatyki.
 
 ## Najważniejsze cechy
 
-- Standardy: Wzorcowa konfiguracja to sekcje predefiniowane (adresat, podmiot wniosku,
-  dane z rejestru, adresy, pełnomocnictwo, opłata skarbowa, kontakt, zgody). FormBridge buduje je deterministycznie
-  według „Standardów i dobrych praktyk projektowania formularzy”, razem z warunkami JSONata.
-- Reguły + opcjonalny polski model językowy: Reguły rozpoznają pola właściwe dla wniosku (typy, opcje, pola warunkowe,
-  sekcje powtarzające się, oświadczenia). Opcjonalnie lokalny model PLLuM może poprawiać etykiety i typy pól,
-  gdy reguły nie są pewne (zalecany serwer z GPU – patrz „Model językowy”). Gdy model nie odpowie w limicie czasu, zostaje wynik reguł.
-- Kontrola zgodności: Każdy wynik jest sprawdzany względem „Reguł technicznych konfiguracji formularzy”.
-- W całości lokalnie. Brak karty graficznej, bez zewnętrznych API i usług SaaS. Dane nie opuszczają serwera.
-- Powtarzalność: Ten sam plik zawsze daje ten sam JSON (deterministyczne identyfikatory UUID).
+  1. Standardy: Wzorcowa konfiguracja to sekcje predefiniowane,
+    - adresat, podmiot wniosku,
+    - dane z rejestru,
+    - adresy, pełnomocnictwo,
+    - opłata skarbowa,
+    - kontakt,
+    - zgody. 
+  2. FormBridge buduje je deterministycznie według „Standardów i dobrych praktyk projektowania formularzy”, razem z warunkami JSONata.
+  3. Reguły + opcjonalny polski model językowy. 
+  4. Reguły rozpoznają pola właściwe dla wniosku:
+      - typy,
+      - opcje,
+      - pola warunkowe,
+      - sekcje powtarzające się,
+      - oświadczenia. 
+  5. Opcjonalnie lokalny model PLLuM może poprawiać etykiety i typy pól, gdy reguły nie są pewne (zalecany serwer z GPU). Gdy model nie odpowie w limicie czasu, zostaje wynik reguł.
+  6. Kontrola zgodności: Każdy wynik jest sprawdzany względem „Reguł technicznych konfiguracji formularzy”.
+  7. Aplikacja działa w całości lokalnie. Brak karty graficznej, bez zewnętrznych API i usług SaaS. Dane nie opuszczają serwera.
+  8. Powtarzalność: Ten sam plik zawsze daje ten sam JSON (deterministyczne identyfikatory UUID).
 
-## Szybki start
+## Uruchomienie aplikacji
 
 ```bash
-# 1. Opcjonalnie, tylko dla modelu językowego: pobranie PLLuM do ./models
+# 1. Opcjonalnie jeśli wykorzystany jest model językowy. W takim wypadku należy pobrać model np. PLLuM do ./models
 ./scripts/download-models.sh
 
 # 2. Konfiguracja
@@ -31,7 +45,7 @@ cp .env.example .env                     # ustawić FORMBRIDGE_JWT_SECRET, FORMB
 
 # 3. Uruchomienie
 docker compose up --build                      # same reguły i szablony
-# docker compose --profile llm up --build      # z modelem PLLuM (ustaw FORMBRIDGE_LLM_ENABLED=true w .env)
+# docker compose --profile llm up --build      # z modelem językowym np. PLLuM (ustawiamy FORMBRIDGE_LLM_ENABLED=true w .env)
 
 # 4. Frontend: http://localhost:8080
 ```
@@ -80,8 +94,11 @@ curl -s -X POST localhost:8080/api/v1/forms/convert -H "Authorization: Bearer $T
   -F 'file=@Wniosek o wydanie zaświadczenia.pdf' -o wynik.json
 ```
 
-Błędy zwracane są w formacie RFC 7807 (`application/problem+json`): 400 (brak pliku, niepoprawna nazwa),
-401 (brak lub błędny token), 413 (za duży plik), 415 (nieobsługiwany format lub MIME niezgodny z rozszerzeniem),
+Błędy zwracane są w formacie RFC 7807 (`application/problem+json`): 
+400 (brak pliku, niepoprawna nazwa),
+401 (brak lub błędny token),
+413 (za duży plik),
+415 (nieobsługiwany format lub MIME niezgodny z rozszerzeniem),
 422 (nie udało się odczytać formularza).
 
 ## Model językowy
@@ -108,7 +125,7 @@ Tesseract OCR, Jackson, llama.cpp. Modele: PLLuM-4B-instruct-2512 (Apache 2.0)
 
 ## Wykorzystanie AI przy tworzeniu
 
-Przy analizie materiałów i pisaniu kodu korzystano ze wsparcia asystentów AI (Claude, opencode).
+Przy analizie materiałów i pisaniu kodu korzystano ze wsparcia kolegów asystentów AI (Claude, Opencode).
 Decyzje projektowe i projekt systemu oraz weryfikacja wyników i odpowiedzialność za kod należą do autora.
 W działającym rozwiązaniu AI to wyłącznie lokalne modele (Tesseract OCR, PLLuM).
 
