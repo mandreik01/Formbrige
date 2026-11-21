@@ -81,7 +81,7 @@ flowchart LR
     EXT --> PT["pdftotext (poppler)"]
     EXT --> TK["Apache Tika"]
     EXT --> OCR["Tesseract OCR (pol)"]
-    AI -.->|"HTTP /v1/chat/completions"| LLM["llama.cpp: PLLuM / Bielik"]
+    AI -.->|"HTTP /v1/chat/completions"| LLM["llama.cpp: PLLuM-4B"]
 ```
 
 `core` nie zależy od `app`. Kontrakt między nimi to jedno wywołanie:
@@ -237,19 +237,17 @@ flowchart LR
     subgraph DC["docker compose"]
         APPC["app: eclipse-temurin JRE 21 + tesseract-ocr-pol + poppler-utils, port 8080"]
         P["llm-pllum (profil llm): llama.cpp server + PLLuM-4B Q4_K_M"]
-        B["llm-bielik (profil llm-fallback): llama.cpp server + Bielik-1.5B"]
     end
     ENV[".env"] --> APPC
-    MOD["./models (*.gguf, tylko do odczytu)"] --> P & B
+    MOD["./models (*.gguf, tylko do odczytu)"] --> P
     APPC -.->|"gdy FORMBRIDGE_LLM_ENABLED=true"| P
-    APPC -.->|"zapasowo"| B
 ```
 
 | Polecenie | Co uruchamia |
 |---|---|
 | `docker compose up --build` | sama aplikacja, bez modelu (domyślnie) |
 | `docker compose --profile llm up --build` | aplikacja i PLLuM; dodatkowo `FORMBRIDGE_LLM_ENABLED=true` w `.env` |
-| `bash scripts/download-models.sh [--with-bielik]` | pobranie modeli do `models/` |
+| `bash scripts/download-models.sh` | pobranie modeli do `models/` |
 | `bash scripts/generate-outputs.sh <katalog> [api]` | konwersja wszystkich plików z katalogu do `output/` |
 | `bash scripts/llm-smoke.sh` | test szybkości i jakości serwera modelu |
 | `mvn test` | testy core i app |

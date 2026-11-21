@@ -44,7 +44,7 @@ public record FormBridgeProperties(
     }
 
     public record Llm(@DefaultValue("true") boolean enabled,
-                      @DefaultValue("http://llm-pllum:8080=PLLuM-4B-instruct-2512,http://llm-bielik:8080=Bielik-1.5B-v3.0-Instruct")
+                      @DefaultValue("http://llm-pllum:8080=PLLuM-4B-instruct-2512")
                       List<String> endpoints,
                       @NotNull @DefaultValue("45s") Duration timeout) {
     }

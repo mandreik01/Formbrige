@@ -46,7 +46,7 @@ formbridge:
     timeout: ${FORMBRIDGE_OCR_TIMEOUT:60s}
   llm:
     enabled: ${FORMBRIDGE_LLM_ENABLED:false}
-    endpoints: ${FORMBRIDGE_LLM_ENDPOINTS:http://llm-pllum:8080=PLLuM-4B-instruct-2512,http://llm-bielik:8080=Bielik-1.5B-v3.0-Instruct}
+    endpoints: ${FORMBRIDGE_LLM_ENDPOINTS:http://llm-pllum:8080=PLLuM-4B-instruct-2512}
     timeout: ${FORMBRIDGE_LLM_TIMEOUT:45s}
 
 logging:

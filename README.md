@@ -23,10 +23,8 @@ Projekt powstał na hackathonie **HackNation 2026**, wyzwanie *Cyfryzacja formul
 ## Szybki start
 
 ```bash
-# 1. Jednorazowo: pobranie modelu PLLuM do ./models
-./scripts/download-models.sh            # Windows: .\scripts\download-models.ps1
-#    opcjonalnie także zapasowy Bielik:   ./scripts/download-models.sh --with-bielik
-#    i uruchomienie z nim:                docker compose --profile fallback up --build
+# 1. Opcjonalnie, tylko dla modelu językowego: pobranie PLLuM do ./models
+./scripts/download-models.sh
 
 # 2. Konfiguracja
 cp .env.example .env                     # ustawić FORMBRIDGE_JWT_SECRET, FORMBRIDGE_CLIENT_ID, FORMBRIDGE_CLIENT_SECRET
@@ -58,7 +56,7 @@ Wszystkie parametry ustawia się zmiennymi środowiskowymi; sekrety podaje się 
 | `FORMBRIDGE_JWT_TTL` | ważność tokenu | `1h` |
 | `FORMBRIDGE_CLIENT_ID`, `FORMBRIDGE_CLIENT_SECRET` | dane klienta do pobrania tokenu | wymagane |
 | `FORMBRIDGE_LLM_ENABLED` | użycie lokalnego modelu językowego | `false` |
-| `FORMBRIDGE_LLM_ENDPOINTS` | serwery modeli `url=nazwa`, w kolejności użycia | PLLuM, potem Bielik |
+| `FORMBRIDGE_LLM_ENDPOINTS` | serwery modeli `url=nazwa`, w kolejności użycia | PLLuM |
 | `FORMBRIDGE_LLM_TIMEOUT` | łączny limit pracy modelu na formularz | `45s` |
 | `FORMBRIDGE_OCR_LANGUAGE` | język OCR (Tesseract) | `pol` |
 
@@ -105,14 +103,14 @@ Wygenerowane pliki JSON: [output/](output/).
 ## Licencje zależności
 
 Wyłącznie biblioteki open source bez copyleftu (Apache 2.0, MIT, BSD): Spring Boot, Apache Tika (PDFBox, POI),
-Tesseract OCR, Jackson, llama.cpp. Modele: PLLuM-4B-instruct-2512 (Apache 2.0), Bielik-1.5B-v3.0-Instruct
+Tesseract OCR, Jackson, llama.cpp. Modele: PLLuM-4B-instruct-2512 (Apache 2.0)
 (licencja według karty modelu). Szczegóły: [THIRD_PARTY.md](THIRD_PARTY.md).
 
 ## Wykorzystanie AI przy tworzeniu
 
 Przy analizie materiałów, projektowaniu i pisaniu kodu korzystano ze wsparcia asystentów AI (Claude, opencode).
 Decyzje projektowe, weryfikacja wyników i odpowiedzialność za kod należą do autora.
-W działającym rozwiązaniu AI to wyłącznie lokalne modele (Tesseract OCR, PLLuM, Bielik).
+W działającym rozwiązaniu AI to wyłącznie lokalne modele (Tesseract OCR, PLLuM).
 
 ## Licencja
 
