@@ -13,7 +13,69 @@ final class TextLines {
     static final Pattern CHECKBOX = Pattern.compile("^[\\u25A1\\u25A0\\u25AB\\u25AA\\u25CB\\u25CF\\u25EF\\u2610\\u2611\\u2612"
             + "\\u274F\\u2750\\u2751\\u2752\\u274E\\uF000-\\uF0FF\\u2022\\u25E6\\u2023\\u2043\\u2219]\\s*");
 
+    // resztki kratek na datę („Data uiszczenia opłaty - -”) w tekście z PDFBox
+    private static final Pattern DATE_MASK = Pattern.compile("(?:\\s+-){2,}\\s*$");
+    private static final Pattern BOX = Pattern.compile(
+            "[\\u25A1\\u2610\\u2611\\u2612\\u274F\\u2750\\u2751\\u2752\\u274E\\uF000-\\uF0FF]");
+    private static final Pattern BOX_WITH_TEXT = Pattern.compile(BOX.pattern() + "\\s*(?=\\p{L})");
+
     private TextLines() {
+    }
+
+    private static final Pattern SLASH_HINT = Pattern.compile("^(/[^/]{1,30}/)\\s+(\\p{L}.*)$");
+    private static final Pattern LEADING_NUMBER = Pattern.compile("^(\\d{1,2})\\.\\s");
+
+    // „8. Kraj 9. Województwo 10. Gmina” → trzy linie; tniemy tylko przy kolejnych numerach,
+    // żeby nie rozbić zdania z liczbą w środku
+    static List<String> splitNumbered(String line) {
+        Matcher first = LEADING_NUMBER.matcher(line);
+        if (!first.find()) {
+            return List.of(line);
+        }
+        int n = Integer.parseInt(first.group(1));
+        List<String> parts = new ArrayList<>();
+        int from = 0;
+        int searchFrom = first.end();
+        while (true) {
+            Matcher next = Pattern.compile("\\s" + (n + 1) + "\\.\\s").matcher(line);
+            if (!next.find(searchFrom)) {
+                break;
+            }
+            parts.add(line.substring(from, next.start()).strip());
+            from = next.start() + 1;
+            searchFrom = next.end();
+            n++;
+        }
+        parts.add(line.substring(from).strip());
+        return parts;
+    }
+
+    // „Płeć: ❑ pies ❑ suka” → „Płeć:”, „❑ pies”, „❑ suka”; PDFBox składa takie wiersze w jedną linię
+    static List<String> splitInlineBoxes(String line) {
+        List<Integer> starts = new ArrayList<>();
+        int withText = 0;
+        Matcher m = BOX_WITH_TEXT.matcher(line);
+        while (m.find()) {
+            withText++;
+            if (m.start() > 0) {
+                starts.add(m.start());
+            }
+        }
+        // każda kratka musi mieć opis za sobą – „TAK ❑ NIE ❑” zostaje w całości
+        if (starts.isEmpty() || withText != BOX.matcher(line).results().count()) {
+            return List.of(line);
+        }
+        String head = line.substring(0, starts.get(0)).strip();
+        if (!head.endsWith(":") && starts.size() < 2) {
+            return List.of(line);
+        }
+        List<String> parts = new ArrayList<>();
+        parts.add(head);
+        for (int i = 0; i < starts.size(); i++) {
+            int end = i + 1 < starts.size() ? starts.get(i + 1) : line.length();
+            parts.add(line.substring(starts.get(i), end).strip());
+        }
+        return parts;
     }
 
     static List<String> normalize(String text) {
@@ -25,10 +87,21 @@ final class TextLines {
                 .replace('\t', ' ')
                 .replace('\f', '\n');
         List<String> out = new ArrayList<>();
-        for (String raw : t.split("\\R")) {
-            String line = raw.replaceAll("[ ]{2,}", " ").strip();
-            if (!line.isEmpty()) {
-                out.add(line);
+        // szeroka przerwa w linii to granica kolumn strony (PDFBox stawia kolumny obok siebie)
+        for (String raw : t.split("\\R|[ ]{8,}")) {
+            String line = DATE_MASK.matcher(raw.replaceAll("[ ]{2,}", " ")).replaceAll("").strip();
+            // podpis pola „/ adres /” sklejony z tekstem obok: „/ adres / Urząd Miasta …”
+            Matcher hint = SLASH_HINT.matcher(line);
+            if (hint.matches()) {
+                out.add(hint.group(1));
+                line = hint.group(2);
+            }
+            for (String numbered : splitNumbered(line)) {
+                for (String part : splitInlineBoxes(numbered)) {
+                    if (!part.isEmpty()) {
+                        out.add(part);
+                    }
+                }
             }
         }
         return joinContinuations(out);

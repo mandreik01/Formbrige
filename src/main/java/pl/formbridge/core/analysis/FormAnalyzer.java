@@ -303,7 +303,10 @@ public final class FormAnalyzer {
                     String name = r.group(2).isBlank() && i + 1 < lines.size() ? lines.get(i + 1) : r.group(2);
                     if (TITLE.matcher(name).matches()) {
                         String clean = cleanTitle(name);
-                        if (body.groupNames.stream().noneMatch(g -> g.equalsIgnoreCase(clean))) {
+                        // nagłówek grupy bywa przełamany („… Rady Miasta” / „Zgierza”): zostaje dłuższa wersja
+                        String low = clean.toLowerCase(Locale.ROOT);
+                        if (body.groupNames.stream().noneMatch(g -> g.toLowerCase(Locale.ROOT).startsWith(low))) {
+                            body.groupNames.removeIf(g -> low.startsWith(g.toLowerCase(Locale.ROOT)));
                             body.groupNames.add(clean);
                         }
                     }
@@ -330,6 +333,7 @@ public final class FormAnalyzer {
                             closeOptionGroup();
                             currentGroup = match;
                             current = null;
+                            pendingLabel = null;
                             skipping = false;
                         }
                     }
@@ -570,7 +574,7 @@ public final class FormAnalyzer {
                 return;
             }
             if ((endsColon || nextLeaderOnly) && words <= 25) {
-                // pdftotext potrafi wstawić etykietę kolejnej grupy po jej pierwszej opcji
+                // ekstrakcja tekstu potrafi wstawić etykietę kolejnej grupy po jej pierwszej opcji
                 // („❑ suka / ❑ mikroprocesor …… / Sposób oznakowania: / ❑ tatuaż”)
                 if (optionGroup != null && lastOptionLine == i - 1 && optionGroup.options.size() > 2
                         && TextLines.hasLeader(lines.get(i - 1)) && TextLines.CHECKBOX.matcher(next).find()) {
@@ -809,6 +813,9 @@ public final class FormAnalyzer {
         }
 
         private void addAttachment(String text) {
+            if (text.strip().startsWith("*")) {
+                return; // przypis pod listą załączników, nie załącznik
+            }
             ensureSection();
             String t = cleanLabel(text);
             if (t.length() < 4) {
