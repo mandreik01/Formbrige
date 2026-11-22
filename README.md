@@ -16,6 +16,8 @@ i zwraca gotowy do importu JSON z konfiguracją formularza eUsługi:
 
 Projekt powstał w ramach realizacji wyzwania *Cyfryzacja formularzy* przygotowanego przez Centralny Ośrodek Informatyki.
 
+**Film prezentujący projekt:** [youtu.be/prYrWQjhILQ](https://youtu.be/prYrWQjhILQ)
+
 ## Najważniejsze cechy
 
   1. Standardy: Wzorcowa konfiguracja to sekcje predefiniowane,
