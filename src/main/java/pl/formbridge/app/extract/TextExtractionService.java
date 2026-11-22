@@ -117,7 +117,8 @@ public class TextExtractionService {
         try (InputStream in = new ByteArrayInputStream(bytes)) {
             new AutoDetectParser().parse(in, handler, new Metadata(), noTikaOcr());
         } catch (Exception e) {
-            LOG.log(Level.WARNING, "Tika nie odczytała pliku " + fileName, e);
+            LOG.warning(() -> "Tika nie odczytała pliku " + fileName + ": " + rootCause(e).getMessage());
+            LOG.log(Level.FINE, "Szczegóły błędu odczytu " + fileName, e);
             throw ApiException.unprocessable("Nie udało się odczytać treści pliku " + fileName + ".");
         }
         return handler.pages();
@@ -131,6 +132,14 @@ public class TextExtractionService {
         context.set(Parser.class, new AutoDetectParser(new DefaultParser(
                 MediaTypeRegistry.getDefaultRegistry(), new ServiceLoader(), Set.of(TesseractOCRParser.class))));
         return context;
+    }
+
+    private static Throwable rootCause(Throwable e) {
+        Throwable cause = e;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        return cause;
     }
 
     private static BufferedImage readImage(String fileName, byte[] bytes) {
