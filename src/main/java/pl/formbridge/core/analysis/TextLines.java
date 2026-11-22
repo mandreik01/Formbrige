@@ -21,6 +21,13 @@ final class TextLines {
     }
 
     private static final Pattern SLASH_HINT = Pattern.compile("^(/[^/]{1,30}/)\\s+(\\p{L}.*)$");
+    // OCR czyta wykropkowanie jako „Eeeeeeeee«”, „ccccccc” albo „,.,.,.,.”
+    private static final Pattern OCR_LEADER = Pattern.compile(
+            "(?iU)(?<!\\p{L})([eco])\\1{3,}[^\\s\\p{L}\\p{N}]*|[«»]{3,}|(?:[.,·•:;'’`]\\s?){5,}");
+    // kratki i linie tabeli odczytane przez OCR jako „ĄZKO›ŻOHGJ:›”; w treści wniosków ‹ › nie występują
+    private static final Pattern OCR_NOISE = Pattern.compile("\\S*[‹›]\\S*");
+    // kratka ❑ odczytana przez OCR jako samodzielne „Q” (w polszczyźnie Q jako słowo nie występuje)
+    private static final Pattern OCR_BOX = Pattern.compile("(?<![\\p{L}\\p{N}])Q(?=\\s+\\p{Ll})");
     private static final Pattern LEADING_NUMBER = Pattern.compile("^(\\d{1,2})\\.\\s");
 
     // tylko kolejne numery (8., 9., 10.), żeby nie pociąć zdania z liczbą w środku
@@ -71,6 +78,11 @@ final class TextLines {
         return parts;
     }
 
+    static String ocrLeaders(String line) {
+        String cleaned = OCR_NOISE.matcher(OCR_LEADER.matcher(line).replaceAll(" ........ ")).replaceAll("");
+        return OCR_BOX.matcher(cleaned).replaceAll("\u2751");
+    }
+
     static List<String> normalize(String text) {
         String t = Normalizer.normalize(text, Normalizer.Form.NFC)
                 .replace("\u00AD", "")
@@ -82,7 +94,7 @@ final class TextLines {
         List<String> out = new ArrayList<>();
         // PDFBox stawia kolumny strony obok siebie; 8+ spacji to granica kolumn
         for (String raw : t.split("\\R|[ ]{8,}")) {
-            String line = DATE_MASK.matcher(raw.replaceAll("[ ]{2,}", " ")).replaceAll("").strip();
+            String line = DATE_MASK.matcher(ocrLeaders(raw).replaceAll("[ ]{2,}", " ")).replaceAll("").strip();
             Matcher hint = SLASH_HINT.matcher(line);
             if (hint.matches()) {
                 out.add(hint.group(1));
