@@ -32,7 +32,7 @@ korzysta i nie łączy się z nimi.
 | Komponent | Do czego | Licencja |
 |---|---|---|
 | llama.cpp server (obraz `ghcr.io/ggml-org/llama.cpp`) | lokalny serwer modelu z API zgodnym z OpenAI | MIT |
-| PLLuM-4B-instruct-2512 (CYFRAGOVPL), kwantyzacja GGUF od mradermacher | poprawa słabych etykiet | Apache 2.0 według [karty modelu](https://huggingface.co/CYFRAGOVPL/PLLuM-4B-instruct-2512) |
+| PLLuM-4B-instruct-2512 (CYFRAGOVPL), kwantyzacja GGUF od mradermacher | poprawa słabych etykiet | Apache 2.0 według [karty modelu](https://huggingface.co/CYFRAGOVPL/PLLuM-4B-instruct) |
 
 Pliku modelu nie ma w repozytorium. Pobiera go `scripts/download-models.sh`
 do katalogu `models/`, który jest w `.gitignore`.
