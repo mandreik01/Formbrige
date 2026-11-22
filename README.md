@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src/main/resources/static/assets/logo.png" alt="FormBridge – z wniosku do eUsługi" width="420">
+</p>
+
 # FormBridge
 
 *Z papierowego wniosku do eUsługi w kilka sekund.*
@@ -56,7 +60,17 @@ docker compose up --build                      # same reguły i szablony
 docker build -t formbridge:1.0.0 .
 ```
 
-<!-- APP: szczegóły budowania i uruchamiania z APP_NOTES.md -->
+Uruchomienie samego obrazu, bez docker-compose (sekrety przekazywane przy starcie kontenera):
+
+```bash
+docker run --rm -p 8080:8080 --read-only --tmpfs /tmp \
+  -e FORMBRIDGE_JWT_SECRET="$(openssl rand -base64 48)" \
+  -e FORMBRIDGE_CLIENT_ID=coi -e FORMBRIDGE_CLIENT_SECRET=zmien-mnie \
+  formbridge:1.0.0
+```
+
+Obraz jest budowany w dwóch etapach (Maven, potem JRE 21 na Alpine z Tesseractem), działa na użytkowniku
+bez uprawnień administratora i udostępnia tylko port 8080. Stan usługi: `GET /actuator/health`.
 
 ## Konfiguracja
 
@@ -73,8 +87,12 @@ Wszystkie parametry ustawia się zmiennymi środowiskowymi; sekrety podaje się 
 | `FORMBRIDGE_LLM_ENDPOINTS` | serwery modeli `url=nazwa`, w kolejności użycia | PLLuM |
 | `FORMBRIDGE_LLM_TIMEOUT` | łączny limit pracy modelu na formularz | `45s` |
 | `FORMBRIDGE_OCR_LANGUAGE` | język OCR (Tesseract) | `pol` |
-
-<!-- APP: pełna lista z APP_NOTES.md -->
+| `FORMBRIDGE_OCR_TIMEOUT` | limit czasu OCR jednej strony lub fragmentu obrazu | `60s` |
+| `FORMBRIDGE_UPLOAD_MAX_REQUEST_SIZE` | maksymalny rozmiar całego żądania (wsad) | `220MB` |
+| `FORMBRIDGE_BATCH_MAX_FILES` | maksymalna liczba plików we wsadzie | `20` |
+| `FORMBRIDGE_JWT_ISSUER` | wystawca tokenu (`iss`) | `formbridge` |
+| `SERVER_PORT` | port HTTP aplikacji | `8080` |
+| `LLM_THREADS` | liczba wątków serwera modelu (tylko profil `llm`) | `6` |
 
 ## REST API
 
