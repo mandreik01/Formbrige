@@ -19,9 +19,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.UnaryOperator;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 public final class FormRefiner {
+
+    private static final Logger LOG = Logger.getLogger(FormRefiner.class.getName());
 
     public record Report(String model, int candidates, int refined, long millis, boolean timedOut) {
         public static Report skipped() {
@@ -138,6 +142,7 @@ public final class FormRefiner {
                 }
             }
         } catch (Exception e) {
+            LOG.log(Level.FINE, "Nie udało się zinterpretować odpowiedzi modelu językowego", e);
         }
         return count;
     }

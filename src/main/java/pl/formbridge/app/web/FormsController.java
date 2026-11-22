@@ -1,5 +1,8 @@
 package pl.formbridge.app.web;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -36,6 +39,7 @@ public class FormsController {
 
     private static final Logger LOG = Logger.getLogger(FormsController.class.getName());
     private static final MediaType JSON_UTF8 = new MediaType(MediaType.APPLICATION_JSON, StandardCharsets.UTF_8);
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final FileValidator validator;
     private final TextExtractionService extractor;
@@ -76,16 +80,16 @@ public class FormsController {
         if (files.size() > limit) {
             throw ApiException.badRequest("Przesłano " + files.size() + " plików, limit to " + limit + ".");
         }
-        List<String> entries = new ArrayList<>(files.size());
+        List<BatchEntry> entries = new ArrayList<>(files.size());
         for (MultipartFile file : files) {
             entries.add(batchEntry(file));
         }
         return ResponseEntity.ok()
                 .contentType(JSON_UTF8)
-                .body("[" + String.join(",", entries) + "]");
+                .body(toJson(entries));
     }
 
-    private String batchEntry(MultipartFile file) {
+    private BatchEntry batchEntry(MultipartFile file) {
         String name = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
         long start = System.nanoTime();
         try {
@@ -94,14 +98,7 @@ public class FormsController {
             }
             FormBridgeConverter.Result result = process(file);
             long millis = (System.nanoTime() - start) / 1_000_000;
-            StringBuilder sb = new StringBuilder("{");
-            sb.append("\"fileName\":").append(ProblemJson.quote(name));
-            sb.append(",\"status\":200");
-            sb.append(",\"processingMs\":").append(millis);
-            sb.append(",\"form\":").append(result.json());
-            sb.append(",\"proposedDictionaries\":")
-                    .append(ProblemJson.array(result.proposedDictionaries()));
-            return sb.append('}').toString();
+            return BatchEntry.success(name, millis, parseJson(result.json()), result.proposedDictionaries());
         } catch (ApiException e) {
             return batchError(name, e.getStatus().value(), e.getTitle(), e.getMessage());
         } catch (RuntimeException e) {
@@ -110,12 +107,27 @@ public class FormsController {
         }
     }
 
-    private static String batchError(String name, int status, String title, String detail) {
+    private static BatchEntry batchError(String name, int status, String title, String detail) {
         ProblemDetail problem = ProblemDetail.forStatus(status);
         problem.setTitle(title);
         problem.setDetail(detail);
-        return "{\"fileName\":" + ProblemJson.quote(name) + ",\"status\":" + status
-                + ",\"error\":" + ProblemJson.write(problem) + "}";
+        return BatchEntry.error(name, status, problem);
+    }
+
+    private static JsonNode parseJson(String json) {
+        try {
+            return MAPPER.readTree(json);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Nie udało się zdeserializować wyniku konwersji", e);
+        }
+    }
+
+    private static String toJson(Object value) {
+        try {
+            return MAPPER.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Nie udało się przygotować odpowiedzi JSON", e);
+        }
     }
 
     private FormBridgeConverter.Result process(MultipartFile file) {
@@ -146,5 +158,16 @@ public class FormsController {
         headers.add(HEADER_AI_MODEL, result.ai().model());
         headers.add(HEADER_AI_REFINED, result.ai().refined() + "/" + result.ai().candidates());
         headers.add(HEADER_AI_MS, Long.toString(result.ai().millis()));
+    }
+
+    private record BatchEntry(String fileName, int status, Long processingMs, JsonNode form,
+                              List<String> proposedDictionaries, ProblemDetail error) {
+        static BatchEntry success(String fileName, long processingMs, JsonNode form, List<String> proposedDictionaries) {
+            return new BatchEntry(fileName, 200, processingMs, form, proposedDictionaries, null);
+        }
+
+        static BatchEntry error(String fileName, int status, ProblemDetail error) {
+            return new BatchEntry(fileName, status, null, null, null, error);
+        }
     }
 }

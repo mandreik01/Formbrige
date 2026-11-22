@@ -96,7 +96,7 @@ class FormsControllerTest {
     @DisplayName("422 – plik bez treści formularza")
     void emptyContentIsUnprocessable() throws Exception {
         mvc.perform(multipart("/api/v1/forms/convert").file(file("file", "pusty.pdf", Samples.emptyPdf())))
-                .andExpect(status().isUnprocessableEntity())
+                .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.status").value(422));
     }
 
@@ -109,6 +109,7 @@ class FormsControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].status").value(200))
                 .andExpect(jsonPath("$[0].form").exists())
+                .andExpect(jsonPath("$[0].form.tabs").isArray())
                 .andExpect(jsonPath("$[1].status").value(415))
                 .andExpect(jsonPath("$[1].error.status").value(415));
     }

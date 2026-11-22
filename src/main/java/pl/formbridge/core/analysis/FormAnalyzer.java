@@ -83,7 +83,7 @@ public final class FormAnalyzer {
         Body parsed = new BodyParser(body, allLeaders >= 4).parse();
 
         String finalTitle = parsed.groupNames.size() >= 2 ? combinedTitle(parsed.groupNames, title) : title;
-        List<PageSpec> pages = paginate(parsed, finalTitle);
+        List<PageSpec> pages = paginate(parsed);
         return new Analysis(finalTitle, office[0], Boolean.parseBoolean(office[1]), mode, pages,
                 parsed.statements, parsed.proposedDictionaries);
     }
@@ -156,11 +156,12 @@ public final class FormAnalyzer {
 
     private static String combinedTitle(List<String> groups, String fallback) {
         List<String[]> words = groups.stream().map(g -> cleanTitle(g).split(" ")).toList();
+        String[] first = words.getFirst();
         int prefix = 0;
         outer:
         while (true) {
             for (String[] w : words) {
-                if (prefix >= w.length || !w[prefix].equals(words.get(0)[prefix])) {
+                if (prefix >= w.length || !w[prefix].equals(first[prefix])) {
                     break outer;
                 }
             }
@@ -170,7 +171,7 @@ public final class FormAnalyzer {
         outer2:
         while (true) {
             for (String[] w : words) {
-                if (suffix >= w.length - prefix || !w[w.length - 1 - suffix].equals(words.get(0)[words.get(0).length - 1 - suffix])) {
+                if (suffix >= w.length - prefix || !w[w.length - 1 - suffix].equals(first[first.length - 1 - suffix])) {
                     break outer2;
                 }
             }
@@ -183,10 +184,10 @@ public final class FormAnalyzer {
         for (String[] w : words) {
             middles.add(String.join(" ", java.util.Arrays.copyOfRange(w, prefix, w.length - suffix)));
         }
-        String head = String.join(" ", java.util.Arrays.copyOfRange(words.get(0), 0, prefix));
-        String tail = String.join(" ", java.util.Arrays.copyOfRange(words.get(0), words.get(0).length - suffix, words.get(0).length));
-        String mid = middles.size() == 1 ? middles.get(0)
-                : String.join(", ", middles.subList(0, middles.size() - 1)) + " lub " + middles.get(middles.size() - 1);
+        String head = String.join(" ", java.util.Arrays.copyOfRange(first, 0, prefix));
+        String tail = String.join(" ", java.util.Arrays.copyOfRange(first, first.length - suffix, first.length));
+        String mid = middles.size() == 1 ? middles.getFirst()
+                : String.join(", ", middles.subList(0, middles.size() - 1)) + " lub " + middles.getLast();
         String t = (head + " " + mid + " " + tail).replaceAll("\\s+", " ").strip();
         return t.length() > 255 ? fallback : t;
     }
@@ -523,7 +524,7 @@ public final class FormAnalyzer {
             if (optionsWithoutGlyphs && optionGroup != null && !TextLines.hasLeader(line)) {
                 if (line.toLowerCase(Locale.ROOT).startsWith("jeśli") || line.toLowerCase(Locale.ROOT).startsWith("jeżeli")) {
                     FieldSpec g = optionGroup;
-                    String lastOpt = g.options.isEmpty() ? null : g.options.get(g.options.size() - 1);
+                    String lastOpt = g.options.isEmpty() ? null : g.options.getLast();
                     closeOptionGroup();
                     if (lastOpt != null) {
                         conditionalOn = Condition.answerIs(current.techName, g.techName, lastOpt);
@@ -590,8 +591,8 @@ public final class FormAnalyzer {
                 // „❑ suka / ❑ mikroprocesor …… / Sposób oznakowania: / ❑ tatuaż” – opcja należy do następnej grupy
                 if (optionGroup != null && lastOptionLine == i - 1 && optionGroup.options.size() > 2
                         && TextLines.hasLeader(lines.get(i - 1)) && TextLines.CHECKBOX.matcher(next).find()) {
-                    optionGroup.options.remove(optionGroup.options.size() - 1);
-                    deferred.remove(deferred.size() - 1);
+                    optionGroup.options.removeLast();
+                    deferred.removeLast();
                     carriedOption = TextLines.withoutCheckbox(lines.get(i - 1));
                 }
                 closeOptionGroup();
@@ -599,7 +600,7 @@ public final class FormAnalyzer {
                 if (TextLines.CHECKBOX.matcher(next).find()) {
                     return;
                 }
-                if (!nextLeaderOnly && endsColon && !leaderDocument) {
+                if (!nextLeaderOnly && !leaderDocument) {
                     addTextField(pendingLabel, 1, line);
                     pendingLabel = null;
                 }
@@ -742,12 +743,10 @@ public final class FormAnalyzer {
                     continue;
                 }
                 FieldSpec f = addTextField(label, k == fieldLabels.size() - 1 ? leaderLines : 1, fieldLabels.get(k) + " " + unit);
-                if (f != null) {
-                    f.sourceText = truncate(stripStars(line), 300);
-                }
-                if (f != null && !unit.isBlank() && unit.length() <= 6) {
+                f.sourceText = truncate(stripStars(line), 300);
+                if (!unit.isBlank() && unit.length() <= 6) {
                     if (f.type == Type.TEXT_FIELD && unit.matches("(?iU)m2|m²|zł|ha|dni|szt\\.?|%|km|m")) {
-                        replaceType(f, Type.NUMBER);
+                        replaceType(f);
                     }
                     f.description = "Jednostka: " + unit;
                 }
@@ -791,16 +790,17 @@ public final class FormAnalyzer {
 
         private FieldSpec addTextField(String label, int leaderLines, String context) {
             ensureSection();
+            String safeContext = context == null ? "" : context;
             String clean = capitalize(label.isBlank() ? "Uzupełnij" : label);
             Type type = FieldTyper.typeFor(clean, leaderLines);
             if (inAttachments || (FieldTyper.looksLikeAttachment(clean) && clean.toLowerCase(Locale.ROOT).startsWith("załącz"))) {
                 type = Type.FILE_UPLOADER;
             }
             FieldSpec f = FieldSpec.of(type, truncate(clean, 200), names.unique(truncate(clean, 50)));
-            f.sourceText = truncate(context == null ? "" : context.strip(), 300);
-            if (!FieldTyper.isOptional(context)) {
+            f.sourceText = truncate(safeContext.strip(), 300);
+            if (!FieldTyper.isOptional(safeContext)) {
                 f.required();
-            } else if (context.toLowerCase(Locale.ROOT).contains("opcjonaln")) {
+            } else if (safeContext.toLowerCase(Locale.ROOT).contains("opcjonaln")) {
                 f.title = f.title.replaceAll("(?iU)\\s*\\(opcjonalnie\\)", "");
             }
             FieldTyper.addValidators(f);
@@ -811,8 +811,8 @@ public final class FormAnalyzer {
             return f;
         }
 
-        private void replaceType(FieldSpec f, Type t) {
-            FieldSpec n = FieldSpec.of(t, f.title, f.techName);
+        private void replaceType(FieldSpec f) {
+            FieldSpec n = FieldSpec.of(Type.NUMBER, f.title, f.techName);
             n.validation.addAll(f.validation);
             n.description = f.description;
             n.showWhen = f.showWhen;
@@ -865,7 +865,7 @@ public final class FormAnalyzer {
             String opt = raw;
             boolean details = TextLines.hasLeader(raw);
             if (details) {
-                opt = TextLines.segmentsBeforeLeaders(raw).get(0);
+                opt = TextLines.segmentsBeforeLeaders(raw).getFirst();
             }
             opt = capitalize(cleanLabel(opt.replaceFirst("^\\d+[.)]\\s*", "")));
             if (opt.isBlank()) {
@@ -876,11 +876,8 @@ public final class FormAnalyzer {
                 final String option = opt;
                 FieldSpec group = optionGroup;
                 String sectionTech = current.techName;
-                deferred.add(() -> {
-                    FieldSpec d = FieldSpec.of(Type.TEXT_FIELD, option + " – podaj szczegóły", names.unique(option + "_szczegoly"))
-                            .required().when(Condition.answerIs(sectionTech, group.techName, option));
-                    return d;
-                });
+                deferred.add(() -> FieldSpec.of(Type.TEXT_FIELD, option + " – podaj szczegóły", names.unique(option + "_szczegoly"))
+                        .required().when(Condition.answerIs(sectionTech, group.techName, option)));
             }
         }
 
@@ -950,7 +947,7 @@ public final class FormAnalyzer {
 
         private void ensureSection() {
             if (current == null) {
-                startSection(currentGroup != null ? "Szczegóły wniosku" : "Szczegóły wniosku", 1);
+                startSection("Szczegóły wniosku", 1);
             }
         }
 
@@ -1001,7 +998,7 @@ public final class FormAnalyzer {
     }
 
 
-    private List<PageSpec> paginate(Body body, String title) {
+    private List<PageSpec> paginate(Body body) {
         List<PageSpec> pages = new ArrayList<>();
         if (body.sections.isEmpty()) {
             PageSpec p = PageSpec.main("Szczegóły wniosku");
@@ -1010,7 +1007,6 @@ public final class FormAnalyzer {
             pages.add(p);
             return pages;
         }
-        Condition groupCondition = null;
         String groupField = null;
         String groupSection = null;
         if (!body.groupNames.isEmpty()) {
