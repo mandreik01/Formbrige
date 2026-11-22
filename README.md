@@ -51,7 +51,7 @@ cp .env.example .env                     # ustawić FORMBRIDGE_JWT_SECRET, FORMB
 docker compose up --build                      # same reguły i szablony
 # docker compose --profile llm up --build      # z modelem językowym np. PLLuM (ustawiamy FORMBRIDGE_LLM_ENABLED=true w .env)
 
-# 4. Frontend: http://localhost:8080
+# 4. Frontend: http://localhost:8080 (logowanie danymi FORMBRIDGE_CLIENT_ID i FORMBRIDGE_CLIENT_SECRET z .env)
 ```
 
 ## Budowanie obrazu Docker
